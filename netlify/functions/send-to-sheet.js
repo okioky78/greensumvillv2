@@ -1,25 +1,24 @@
-exports.handler = async function(event) {
+exports.handler = async (event) => {
   try {
-    const body = JSON.parse(event.body);
+    const body = event.body ? JSON.parse(event.body) : {};
 
     return {
       statusCode: 200,
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        success: true,
-        message: "API 연결 성공",
-        received: body
-      })
+        ok: true,
+        message: "send-to-sheet function OK",
+        received: body,
+      }),
     };
-
-  } catch (error) {
+  } catch (e) {
     return {
-      statusCode: 500,
+      statusCode: 400,
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        error: error.message
-      })
+        ok: false,
+        error: e.message,
+      }),
     };
   }
 };
