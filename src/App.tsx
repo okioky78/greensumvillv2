@@ -139,10 +139,17 @@ export default function App() {
         body: JSON.stringify(data),
       });
 
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || "구글 시트 전송에 실패했습니다.");
-      }
+      const text = await response.text();
+  let errData: any = null;
+  
+  try {
+    errData = JSON.parse(text);
+  } catch {}
+  
+  if (!response.ok) {
+    throw new Error(errData?.error || text || "구글 시트 전송 실패");
+  }
+  }
 
       setSuccess("구글 시트에 성공적으로 전송되었습니다!");
     } catch (err: any) {
