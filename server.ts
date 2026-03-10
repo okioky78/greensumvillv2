@@ -22,7 +22,8 @@ app.post("/api/send-to-sheet", async (req, res) => {
     const spreadsheetId = "1_BeBtLOjriRAK5Mn-f5Ct6THKudzT63ySXc-pTs9dpg";
 
     const clientEmail = (process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || process.env.GOOGLE_SERVICE_ACCOUNT || "").trim();
-    const privateKey = (process.env.GOOGLE_PRIVATE_KEY || "").replace(/\\n/g, "\n").trim();
+    const base64Key = process.env.VITE_GOOGLE_PRIVATE_KEY || "";
+    const privateKey = Buffer.from(base64Key, 'base64').toString('utf8').replace(/\\n/g, "\n");
 
     if (!clientEmail || !privateKey) {
       return res.status(400).json({ 
