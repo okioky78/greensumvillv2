@@ -19,10 +19,11 @@ app.use(express.json());
 app.post("/api/send-to-sheet", async (req, res) => {
   try {
     const { paymentDate, amount, cardIssuer, approvalNumber, businessNumber, branch, studentName, remarks, paymentMethod } = req.body;
-    const spreadsheetId = "1_BeBtLOjriRAK5Mn-f5Ct6THKudzT63ySXc-pTs9dpg";
+    const spreadsheetId = process.env.GOOGLE_SHEET_ID
 
     const clientEmail = (process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || process.env.GOOGLE_SERVICE_ACCOUNT || "").trim();
-    const privateKey = (process.env.GOOGLE_PRIVATE_KEY || "").replace(/\\n/g, "\n").trim();
+    const base64Key = process.env.GOOGLE_PRIVATE_KEY || "";
+    const privateKey = Buffer.from(base64Key, 'base64').toString('utf8').trim();
 
     if (!clientEmail || !privateKey) {
       return res.status(400).json({ 
