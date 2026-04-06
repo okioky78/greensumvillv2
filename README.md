@@ -2,7 +2,7 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# Run and deploy your AI Studio app
+# Run and deploy your app
 
 This contains everything you need to run your app locally.
 
@@ -10,11 +10,19 @@ View your app in AI Studio: https://ai.studio/apps/4a223d4f-5ec2-4b3f-9237-44cd2
 
 ## Run Locally
 
-**Prerequisites:**  Node.js
-
+**Prerequisites:** Node.js, Netlify CLI
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
+2. Install and authenticate Netlify CLI:
+   `npm install -g netlify-cli`
+   `netlify login`
+3. Set the `VITE_GEMINI_API_KEY` in `.env.local`
+4. Set the following Netlify/local environment variables for Google Sheets:
+   `GOOGLE_SHEET_ID`
+   `GOOGLE_SERVICE_ACCOUNT_EMAIL`
+   `GOOGLE_PRIVATE_KEY` (base64-encoded)
+5. Run the app:
    `npm run dev`
+
+`npm run dev` starts Netlify Dev on `http://localhost:8888` and proxies the Vite app plus Netlify Functions so `/api/send-to-sheet` uses the same function locally and in production.

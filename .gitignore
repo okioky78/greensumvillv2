@@ -1,3 +1,7 @@
 node_modules
+dist
+deno.lock
 
 .env
+# Local Netlify folder
+.netlify

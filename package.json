@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "start": "vite",
-    "dev": "tsx --tsconfig tsconfig.server.json server.ts",
+    "dev": "netlify dev",
+    "dev:vite": "vite --port 5173",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
