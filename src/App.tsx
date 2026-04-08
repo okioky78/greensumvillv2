@@ -1,7 +1,8 @@
-import { useState, useRef, ChangeEvent } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Upload, FileText, CheckCircle2, AlertCircle, Loader2, Send, Database, RotateCcw } from "lucide-react";
 import { GoogleGenAI, Type } from "@google/genai";
+import { useDropzone, type DropzoneOptions, type FileRejection } from "react-dropzone";
 
 interface ExtractedData {
   paymentDate: string;
@@ -17,6 +18,40 @@ interface ExtractedData {
 
 const BRANCHES = ["그린섬", "디자인", "프리어", "목동", "강남", "분당", "홍프", "강프", "하이섬", "애니섬"];
 const PAYMENT_METHODS = ["카드", "현영", "입금"];
+const DROPZONE_ACCEPT = {
+  "image/*": [".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".heif"],
+  "application/pdf": [".pdf"],
+} as const;
+
+const UPLOAD_BOX_STYLES = {
+  idle: {
+    box: "border-neutral-200 hover:border-neutral-300 bg-white shadow-sm",
+    iconContainer: "bg-neutral-100",
+    icon: "text-neutral-400",
+  },
+  selected: {
+    box: "border-emerald-200 bg-emerald-50/30",
+    iconContainer: "bg-neutral-100",
+    icon: "text-neutral-400",
+  },
+  active: {
+    box: "border-emerald-400 bg-emerald-50 shadow-lg shadow-emerald-100",
+    iconContainer: "bg-emerald-100",
+    icon: "text-emerald-600",
+  },
+  reject: {
+    box: "border-red-300 bg-red-50/40",
+    iconContainer: "bg-red-100",
+    icon: "text-red-500",
+  },
+} as const;
+
+const UPLOAD_BOX_PROMPTS = {
+  idle: "파일을 선택하거나 드래그하세요",
+  selected: "파일을 선택하거나 드래그하세요",
+  active: "여기에 파일을 놓으세요",
+  reject: "이미지 또는 PDF 파일 한 개만 업로드할 수 있습니다",
+} as const;
 
 export default function App() {
   const [file, setFile] = useState<File | null>(null);
@@ -27,33 +62,68 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const processSelectedFile = (selectedFile: File) => {
+    setFile(selectedFile);
+    setError(null);
+    setSuccess(null);
+    setData(null);
 
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-      setError(null);
-      setSuccess(null);
-      setData(null);
-      
-      const isImage = selectedFile.type.startsWith("image/");
-      const isHEIC = selectedFile.name.toLowerCase().endsWith(".heic") || selectedFile.type === "image/heic";
-      const isPDF = selectedFile.type === "application/pdf" || selectedFile.name.toLowerCase().endsWith(".pdf");
+    const isImage = selectedFile.type.startsWith("image/");
+    const isHEIC = selectedFile.name.toLowerCase().endsWith(".heic") || selectedFile.type === "image/heic";
+    const isPDF = selectedFile.type === "application/pdf" || selectedFile.name.toLowerCase().endsWith(".pdf");
 
-      if (isImage && !isHEIC) {
-        const reader = new FileReader();
-        reader.onloadend = () => setPreview(reader.result as string);
-        reader.readAsDataURL(selectedFile);
-      } else if (isHEIC) {
-        setPreview("heic");
-      } else if (isPDF) {
-        setPreview("pdf");
-      } else {
-        setPreview(null);
-      }
+    if (isImage && !isHEIC) {
+      const reader = new FileReader();
+      reader.onloadend = () => setPreview(reader.result as string);
+      reader.readAsDataURL(selectedFile);
+      return;
     }
+
+    if (isHEIC) {
+      setPreview("heic");
+      return;
+    }
+
+    if (isPDF) {
+      setPreview("pdf");
+      return;
+    }
+
+    setPreview(null);
   };
+
+  const handleDropAccepted = (acceptedFiles: File[]) => {
+    const selectedFile = acceptedFiles[0];
+    if (!selectedFile) return;
+    processSelectedFile(selectedFile);
+  };
+
+  const handleDropRejected = (fileRejections: FileRejection[]) => {
+    setSuccess(null);
+
+    if (fileRejections.some((rejection) => rejection.errors.some((error) => error.code === "too-many-files"))) {
+      setError("현재는 한 번에 하나의 파일만 업로드할 수 있습니다.");
+      return;
+    }
+
+    setError("이미지 또는 PDF 파일만 업로드할 수 있습니다.");
+  };
+
+  const dropzoneOptions: DropzoneOptions = {
+    accept: DROPZONE_ACCEPT,
+    multiple: false,
+    maxFiles: 1,
+    onDropAccepted: handleDropAccepted,
+    onDropRejected: handleDropRejected,
+    onDragEnter: undefined,
+    onDragOver: undefined,
+    onDragLeave: undefined,
+  };
+
+  const { getRootProps, getInputProps, isDragActive, isDragReject } = useDropzone(dropzoneOptions);
+  const uploadState = isDragReject ? "reject" : isDragActive ? "active" : file ? "selected" : "idle";
+  const uploadBoxStyle = UPLOAD_BOX_STYLES[uploadState];
+  const uploadPrompt = UPLOAD_BOX_PROMPTS[uploadState];
 
   const fileToGenerativePart = async (file: File) => {
     const base64EncodedDataPromise = new Promise<string>((resolve) => {
@@ -163,9 +233,6 @@ export default function App() {
     setData(null);
     setError(null);
     setSuccess(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
   };
 
   const handleDataChange = (key: keyof ExtractedData, value: string) => {
@@ -197,18 +264,13 @@ export default function App() {
         <main className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Upload Section */}
           <section className="space-y-6">
-            <div 
-              className={`relative border-2 border-dashed rounded-2xl p-8 transition-all flex flex-col items-center justify-center text-center cursor-pointer
-                ${file ? 'border-emerald-200 bg-emerald-50/30' : 'border-neutral-200 hover:border-neutral-300 bg-white shadow-sm'}`}
-              onClick={() => fileInputRef.current?.click()}
+            <div
+              {...getRootProps({
+                className: `relative border-2 border-dashed rounded-2xl p-8 transition-all flex flex-col items-center justify-center text-center cursor-pointer
+                  ${uploadBoxStyle.box}`,
+              })}
             >
-              <input 
-                type="file" 
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                className="hidden"
-                accept="image/*,application/pdf"
-              />
+              <input {...getInputProps()} />
               
               {preview === "pdf" ? (
                 <div className="p-12 bg-white rounded-xl shadow-sm mb-4 flex flex-col items-center">
@@ -234,11 +296,13 @@ export default function App() {
                 </div>
               ) : (
                 <div className="py-12">
-                  <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Upload className="w-8 h-8 text-neutral-400" />
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 transition-colors ${uploadBoxStyle.iconContainer}`}>
+                    <Upload className={`w-8 h-8 ${uploadBoxStyle.icon}`} />
                   </div>
-                  <p className="text-sm font-medium">파일을 선택하거나 드래그하세요</p>
-                  <p className="text-xs text-neutral-400 mt-1">PNG, JPG, PDF (최대 10MB)</p>
+                  <p className="text-sm font-medium">{uploadPrompt}</p>
+                  <p className="text-xs text-neutral-400 mt-1">
+                    PNG, JPG, PDF, HEIC (한 번에 1개)
+                  </p>
                 </div>
               )}
             </div>
