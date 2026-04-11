@@ -16,8 +16,9 @@ interface ExtractedData {
   paymentMethod: string;
 }
 
-const BRANCHES = ["그린섬", "디자인", "프리어", "목동", "강남", "분당", "홍프", "강프", "하이섬", "애니섬"];
+const BRANCHES = ["그린섬", "디자인", "목동", "강남", "분당", "홍프", "강프", "하이섬", "애니섬"];
 const PAYMENT_METHODS = ["카드", "현영", "입금"];
+const MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024;
 const DROPZONE_ACCEPT = {
   "image/*": [".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".heif"],
   "application/pdf": [".pdf"],
@@ -106,6 +107,11 @@ export default function App() {
       return;
     }
 
+    if (fileRejections.some((rejection) => rejection.errors.some((error) => error.code === "file-too-large"))) {
+      setError("10MB 이하의 파일만 업로드할 수 있습니다.");
+      return;
+    }
+
     setError("이미지 또는 PDF 파일만 업로드할 수 있습니다.");
   };
 
@@ -113,6 +119,7 @@ export default function App() {
     accept: DROPZONE_ACCEPT,
     multiple: false,
     maxFiles: 1,
+    maxSize: MAX_UPLOAD_SIZE_BYTES,
     onDropAccepted: handleDropAccepted,
     onDropRejected: handleDropRejected,
     onDragEnter: undefined,
@@ -196,27 +203,38 @@ export default function App() {
   };
 
   const handleSendToSheet = async () => {
-    if (!data) return;
+    if (!data || !file) return;
 
     setIsSending(true);
     setError(null);
     setSuccess(null);
 
     try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("paymentDate", data.paymentDate);
+      formData.append("amount", data.amount);
+      formData.append("cardIssuer", data.cardIssuer);
+      formData.append("approvalNumber", data.approvalNumber);
+      formData.append("businessNumber", data.businessNumber);
+      formData.append("branch", data.branch);
+      formData.append("studentName", data.studentName);
+      formData.append("remarks", data.remarks);
+      formData.append("paymentMethod", data.paymentMethod);
+
       const response = await fetch("/api/send-to-sheet", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: formData,
       });
 
       const text = await response.text();
-      const errData: any = JSON.parse(text);
+      const responseData = text ? JSON.parse(text) : null;
     
       if (!response.ok) {
-        throw new Error(errData?.error || text || "구글 시트 전송 실패");
+        throw new Error(responseData?.error || text || "구글 시트 전송 실패");
       }
 
-      setSuccess("구글 시트에 성공적으로 전송되었습니다!");
+      setSuccess(responseData?.message || "구글 시트와 구글 드라이브에 성공적으로 저장되었습니다!");
 
     } catch (err: any) {
       setError(err.message);
@@ -301,7 +319,7 @@ export default function App() {
                   </div>
                   <p className="text-sm font-medium">{uploadPrompt}</p>
                   <p className="text-xs text-neutral-400 mt-1">
-                    PNG, JPG, PDF, HEIC (한 번에 1개)
+                    PNG, JPG, PDF, HEIC (최대 10MB, 한 번에 1개)
                   </p>
                 </div>
               )}
@@ -422,7 +440,7 @@ export default function App() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     onClick={handleSendToSheet}
-                    disabled={isSending}
+                    disabled={isSending || !file}
                     className={`w-full py-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all
                       ${isSending 
                         ? 'bg-emerald-100 text-emerald-400 cursor-not-allowed' 
