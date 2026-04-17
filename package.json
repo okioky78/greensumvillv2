@@ -13,7 +13,6 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@google/genai": "^1.29.0",
     "@tailwindcss/vite": "^4.1.14",
     "@types/multer": "^2.0.0",
     "@vitejs/plugin-react": "^5.0.4",
@@ -21,7 +20,6 @@
     "busboy": "^1.6.0",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
-    "google-auth-library": "^10.6.1",
     "googleapis": "^171.4.0",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",

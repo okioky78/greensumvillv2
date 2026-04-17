@@ -13,7 +13,6 @@ const ALLOWED_EXTENSIONS = new Set([
   ".webp",
   ".heic",
   ".heif",
-  ".pdf",
 ]);
 
 const createError = (message, statusCode = 500) => {
@@ -54,7 +53,7 @@ const isSupportedUpload = ({ filename, mimeType }) => {
   const normalizedMimeType = (mimeType || "").toLowerCase();
   const extension = path.extname(filename || "").toLowerCase();
 
-  if (normalizedMimeType === "application/pdf" || normalizedMimeType.startsWith("image/")) {
+  if (normalizedMimeType.startsWith("image/")) {
     return true;
   }
 
@@ -62,12 +61,11 @@ const isSupportedUpload = ({ filename, mimeType }) => {
 };
 
 const buildDriveFilename = (fields, originalFilename) => {
-  const paymentDate = (fields.paymentDate || "").replace(/[^\d]/g, "") || "undated";
+  const uploadedAt = new Date().toISOString().replace(/[^\d]/g, "").slice(0, 14);
   const branch = sanitizeSegment(fields.branch || "", "unknown-branch");
-  const approvalNumber = sanitizeSegment(fields.approvalNumber || "", String(Date.now()));
   const filename = sanitizeFilename(originalFilename);
 
-  return `${paymentDate}_${branch}_${approvalNumber}_${filename}`;
+  return `${uploadedAt}_${branch}_${filename}`;
 };
 
 const escapeDriveQueryValue = (value) => (value || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
@@ -162,7 +160,7 @@ const parseMultipartFormData = (event) =>
       }
 
       if (!isSupportedUpload(uploadedFile)) {
-        finish(createError("이미지 또는 PDF 파일만 업로드할 수 있습니다.", 400));
+        finish(createError("이미지 파일만 업로드할 수 있습니다.", 400));
         return;
       }
 
@@ -177,7 +175,6 @@ const parseMultipartFormData = (event) =>
   });
 
 const getGoogleClients = () => {
-  const spreadsheetId = (process.env.GOOGLE_SHEET_ID || "").trim();
   const driveRootFolderId = (process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID || "").trim();
   const clientEmail = (
     process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL ||
@@ -187,9 +184,9 @@ const getGoogleClients = () => {
   const base64Key = process.env.GOOGLE_PRIVATE_KEY || "";
   const privateKey = Buffer.from(base64Key, "base64").toString("utf8").trim();
 
-  if (!spreadsheetId || !driveRootFolderId || !clientEmail || !privateKey) {
+  if (!driveRootFolderId || !clientEmail || !privateKey) {
     throw createError(
-      "Google Sheets 및 Drive 자격 정보가 설정되지 않았습니다. GOOGLE_SHEET_ID, GOOGLE_DRIVE_ROOT_FOLDER_ID, GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_PRIVATE_KEY를 확인해 주세요.",
+      "Google Drive 자격 정보가 설정되지 않았습니다. GOOGLE_DRIVE_ROOT_FOLDER_ID, GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_PRIVATE_KEY를 확인해 주세요.",
       400,
     );
   }
@@ -197,17 +194,12 @@ const getGoogleClients = () => {
   const auth = new google.auth.JWT({
     email: clientEmail,
     key: privateKey,
-    scopes: [
-      "https://www.googleapis.com/auth/spreadsheets",
-      "https://www.googleapis.com/auth/drive",
-    ],
+    scopes: ["https://www.googleapis.com/auth/drive"],
   });
 
   return {
-    spreadsheetId,
     driveRootFolderId,
     clientEmail,
-    sheets: google.sheets({ version: "v4", auth }),
     drive: google.drive({ version: "v3", auth }),
   };
 };
@@ -255,16 +247,6 @@ const resolveBranchFolderId = async (drive, driveRootFolderId, branch) => {
   return matchedFolders[0].id;
 };
 
-const getFirstSheetName = async (sheets, spreadsheetId) => {
-  try {
-    const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId });
-    return spreadsheet.data.sheets?.[0]?.properties?.title || "Sheet1";
-  } catch (error) {
-    console.warn("Could not fetch sheet name, defaulting to Sheet1", error);
-    return "Sheet1";
-  }
-};
-
 export const handler = async (event) => {
   if (event.httpMethod !== "POST") {
     return jsonResponse(405, { ok: false, error: "Method Not Allowed" });
@@ -274,23 +256,11 @@ export const handler = async (event) => {
 
   try {
     const { fields, file } = await parseMultipartFormData(event);
-    const {
-      paymentDate,
-      amount,
-      cardIssuer,
-      approvalNumber,
-      businessNumber,
-      branch,
-      studentName,
-      remarks,
-      paymentMethod,
-    } = fields;
+    const { branch } = fields;
 
     const {
-      spreadsheetId,
       driveRootFolderId,
       clientEmail,
-      sheets,
       drive,
     } = getGoogleClients();
 
@@ -322,31 +292,10 @@ export const handler = async (event) => {
     }
 
     const driveFileUrl = `https://drive.google.com/file/d/${uploadedDriveFileId}/view`;
-    const firstSheetName = await getFirstSheetName(sheets, spreadsheetId);
-
-    await sheets.spreadsheets.values.append({
-      spreadsheetId,
-      range: `'${firstSheetName}'!A:J`,
-      valueInputOption: "USER_ENTERED",
-      requestBody: {
-        values: [[
-          paymentDate,
-          amount,
-          cardIssuer,
-          approvalNumber,
-          businessNumber,
-          branch,
-          studentName,
-          remarks,
-          paymentMethod,
-          driveFileUrl,
-        ]],
-      },
-    });
 
     return jsonResponse(200, {
       ok: true,
-      message: "구글 시트와 구글 드라이브에 저장 완료",
+      message: "구글 드라이브에 저장 완료",
       driveFileUrl,
     });
   } catch (error) {
@@ -362,13 +311,13 @@ export const handler = async (event) => {
       }
     }
 
-    console.error("Sheet/Drive error:", error);
+    console.error("Drive error:", error);
     const statusCode = error.statusCode || 500;
     const errorMessage = error.response?.data?.error?.message || error.message || "저장 중 오류가 발생했습니다.";
 
     return jsonResponse(statusCode, {
       ok: false,
-      error: statusCode >= 500 ? `구글 시트/드라이브 저장 실패: ${errorMessage}` : errorMessage,
+      error: statusCode >= 500 ? `구글 드라이브 저장 실패: ${errorMessage}` : errorMessage,
     });
   }
 };
