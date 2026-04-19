@@ -6,18 +6,22 @@ import {
   createOAuthSessionFromCallback,
   createSessionCookie,
   getAuthRedirectUrl,
-} from "../../server/google-oauth/index.js";
+} from "../../server/google-oauth/index.ts";
 import {
   createDriveClient,
   getDriveConfig,
   requireDriveRootAccess,
-} from "../../server/google-drive/index.js";
-import { redirectResponse } from "../../server/shared/http.js";
+} from "../../server/google-drive/index.ts";
+import { redirectResponse } from "../../server/shared/http.ts";
+import { Method, type NetlifyEvent } from "../../server/shared/types.ts";
 
 const LEGACY_OAUTH_TOKEN_COOKIE = "greensum_oauth_tokens";
 
-export const handler = async (event) => {
-  if (event.httpMethod !== "GET") {
+const getErrorMessage = (error: unknown) =>
+  error instanceof Error ? error.message : "Google 로그인에 실패했습니다.";
+
+export const handler = async (event: NetlifyEvent) => {
+  if (event.httpMethod !== Method.Get) {
     return redirectResponse(getAuthRedirectUrl("authError=method-not-allowed"));
   }
 
@@ -37,9 +41,7 @@ export const handler = async (event) => {
       clearOAuthCookie(LEGACY_OAUTH_TOKEN_COOKIE),
     ]);
   } catch (error) {
-    const message = encodeURIComponent(
-      error.message || "Google 로그인에 실패했습니다.",
-    );
+    const message = encodeURIComponent(getErrorMessage(error));
     const cookies = [
       clearOAuthCookie(OAUTH_STATE_COOKIE),
       clearOAuthCookie(OAUTH_SESSION_COOKIE),

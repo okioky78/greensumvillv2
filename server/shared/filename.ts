@@ -1,10 +1,10 @@
 import path from "path";
-import { createHttpError } from "./http.js";
+import { createHttpError } from "./http.ts";
 
 const SAFE_FALLBACK = "receipt";
 const ALLOWED_IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".heif"]);
 
-export const sanitizeFilenameSegment = (value, fallback = SAFE_FALLBACK) => {
+export const sanitizeFilenameSegment = (value: unknown, fallback = SAFE_FALLBACK) => {
   const sanitized = String(value || "")
     .normalize("NFC")
     .replace(/[\\/:*?"<>|]+/g, "-")
@@ -24,7 +24,7 @@ export const getSafeImageExtension = (filename = "") => {
   return extension;
 };
 
-export const normalizePaymentDate = (value) => {
+export const normalizePaymentDate = (value: unknown) => {
   const raw = String(value || "").trim();
   const match = raw.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})$/);
 
@@ -34,7 +34,7 @@ export const normalizePaymentDate = (value) => {
   return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
 };
 
-export const assertPaymentDate = (paymentDate) => {
+export const assertPaymentDate = (paymentDate: unknown) => {
   const normalized = normalizePaymentDate(paymentDate);
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
@@ -44,7 +44,17 @@ export const assertPaymentDate = (paymentDate) => {
   return normalized;
 };
 
-export const buildReceiptDriveFilename = ({ paymentDate, studentName, originalFilename }) => {
+interface ReceiptDriveFilenameInput {
+  paymentDate: unknown;
+  studentName: unknown;
+  originalFilename: string;
+}
+
+export const buildReceiptDriveFilename = ({
+  paymentDate,
+  studentName,
+  originalFilename,
+}: ReceiptDriveFilenameInput) => {
   const safePaymentDate = assertPaymentDate(paymentDate);
   const safeStudentName = sanitizeFilenameSegment(studentName, "");
 

@@ -1,12 +1,13 @@
 import Busboy from "busboy";
-import { createHttpError, getHeader } from "./http.js";
-import { sanitizeFilenameSegment } from "./filename.js";
+import { createHttpError, getHeader } from "./http.ts";
+import { sanitizeFilenameSegment } from "./filename.ts";
+import type { MultipartFormData, NetlifyEvent, UploadedFile } from "./types.ts";
 
 const ALLOWED_IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".heif"]);
 
 export const MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024;
 
-export const isSupportedImageUpload = ({ filename, mimeType }) => {
+export const isSupportedImageUpload = ({ filename, mimeType }: UploadedFile) => {
   const normalizedMimeType = (mimeType || "").toLowerCase();
   const extension = filename?.includes(".") ? `.${filename.split(".").pop().toLowerCase()}` : "";
 
@@ -15,8 +16,8 @@ export const isSupportedImageUpload = ({ filename, mimeType }) => {
   return ALLOWED_IMAGE_EXTENSIONS.has(extension);
 };
 
-export const parseMultipartFormData = (event) =>
-  new Promise((resolve, reject) => {
+export const parseMultipartFormData = (event: NetlifyEvent) =>
+  new Promise<MultipartFormData>((resolve, reject) => {
     const contentType = getHeader(event.headers, "content-type");
     if (!contentType.includes("multipart/form-data")) {
       reject(createHttpError("multipart/form-data 요청만 지원합니다.", 400, "INVALID_CONTENT_TYPE"));
@@ -31,18 +32,23 @@ export const parseMultipartFormData = (event) =>
       },
     });
 
-    const fields = {};
-    let uploadedFile = null;
+    const fields: Record<string, string> = {};
+    let uploadedFile: UploadedFile | null = null;
     let fileTooLarge = false;
     let filesLimitHit = false;
     let settled = false;
 
-    const finish = (error, result) => {
+    const finish = (error: unknown, result?: MultipartFormData) => {
       if (settled) return;
       settled = true;
 
       if (error) {
         reject(error);
+        return;
+      }
+
+      if (!result) {
+        reject(createHttpError("업로드 요청을 처리하지 못했습니다.", 400, "INVALID_MULTIPART"));
         return;
       }
 
@@ -59,13 +65,13 @@ export const parseMultipartFormData = (event) =>
         return;
       }
 
-      const chunks = [];
+      const chunks: Buffer[] = [];
 
       fileStream.on("limit", () => {
         fileTooLarge = true;
       });
 
-      fileStream.on("data", (chunk) => {
+      fileStream.on("data", (chunk: Buffer) => {
         chunks.push(chunk);
       });
 

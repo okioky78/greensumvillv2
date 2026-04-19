@@ -1,5 +1,11 @@
+import type { ApiResponse, Headers, NetlifyEvent } from "./types.ts";
+
 export class HttpError extends Error {
-  constructor(message, statusCode = 500, code = "INTERNAL_ERROR") {
+  statusCode: number;
+  code: string;
+  clearSessionCookie?: string;
+
+  constructor(message: string, statusCode = 500, code = "INTERNAL_ERROR") {
     super(message);
     this.name = "HttpError";
     this.statusCode = statusCode;
@@ -7,10 +13,14 @@ export class HttpError extends Error {
   }
 }
 
-export const createHttpError = (message, statusCode = 500, code = "INTERNAL_ERROR") =>
+export const createHttpError = (message: string, statusCode = 500, code = "INTERNAL_ERROR") =>
   new HttpError(message, statusCode, code);
 
-export const jsonResponse = (statusCode, body, headers = {}) => ({
+export const jsonResponse = (
+  statusCode: number,
+  body: unknown,
+  headers: Record<string, string> = {},
+): ApiResponse => ({
   statusCode,
   headers: {
     "Content-Type": "application/json",
@@ -19,10 +29,11 @@ export const jsonResponse = (statusCode, body, headers = {}) => ({
   body: JSON.stringify(body),
 });
 
-export const headersWithOptionalCookie = (setCookie) =>
-  setCookie ? { "Set-Cookie": setCookie } : {};
-
-export const jsonResponseWithCookies = (statusCode, body, cookies = []) => ({
+export const jsonResponseWithCookies = (
+  statusCode: number,
+  body: unknown,
+  cookies: string[] = [],
+): ApiResponse => ({
   ...jsonResponse(statusCode, body),
   ...(cookies.length
     ? {
@@ -33,7 +44,7 @@ export const jsonResponseWithCookies = (statusCode, body, cookies = []) => ({
     : {}),
 });
 
-export const redirectResponse = (location, cookies = []) => ({
+export const redirectResponse = (location: string, cookies: string[] = []): ApiResponse => ({
   statusCode: 302,
   headers: {
     Location: location,
@@ -47,7 +58,7 @@ export const redirectResponse = (location, cookies = []) => ({
     : {}),
 });
 
-export const getHeader = (headers, headerName) => {
+export const getHeader = (headers: Headers | undefined, headerName: string) => {
   const target = headerName.toLowerCase();
 
   for (const [key, value] of Object.entries(headers || {})) {
@@ -59,7 +70,7 @@ export const getHeader = (headers, headerName) => {
   return "";
 };
 
-export const parseCookies = (cookieHeader = "") =>
+export const parseCookies = (cookieHeader = ""): Record<string, string> =>
   cookieHeader
     .split(";")
     .map((part) => part.trim())
@@ -72,9 +83,17 @@ export const parseCookies = (cookieHeader = "") =>
       const value = part.slice(separatorIndex + 1).trim();
       cookies[name] = decodeURIComponent(value);
       return cookies;
-    }, {});
+    }, {} as Record<string, string>);
 
-export const serializeCookie = (name, value, options = {}) => {
+interface CookieOptions {
+  httpOnly?: boolean;
+  secure?: boolean;
+  sameSite?: "Lax" | "Strict" | "None";
+  path?: string;
+  maxAge?: number;
+}
+
+export const serializeCookie = (name: string, value: string, options: CookieOptions = {}) => {
   const parts = [`${name}=${encodeURIComponent(value)}`];
 
   if (options.maxAge !== undefined) parts.push(`Max-Age=${options.maxAge}`);
@@ -86,7 +105,8 @@ export const serializeCookie = (name, value, options = {}) => {
   return parts.join("; ");
 };
 
-export const getRequestCookies = (event) => parseCookies(getHeader(event.headers, "cookie"));
+export const getRequestCookies = (event: NetlifyEvent) =>
+  parseCookies(getHeader(event.headers, "cookie"));
 
 export const getAllowedOrigins = () => {
   const configuredOrigins = (process.env.APP_ORIGIN || "")
@@ -94,9 +114,10 @@ export const getAllowedOrigins = () => {
     .map((origin) => origin.trim())
     .filter(Boolean);
   const netlifyUrl = (process.env.URL || "").trim();
-  const localOrigins = process.env.NETLIFY_DEV === "true" || (!configuredOrigins.length && !netlifyUrl)
-    ? ["http://localhost:8888"]
-    : [];
+  const localOrigins =
+    process.env.NETLIFY_DEV === "true" || (!configuredOrigins.length && !netlifyUrl)
+      ? ["http://localhost:8888"]
+      : [];
 
   return Array.from(new Set([
     ...configuredOrigins,
@@ -114,7 +135,7 @@ export const getAppOrigin = () => {
   return origins[0];
 };
 
-export const validateAllowedOrigin = (event) => {
+export const validateAllowedOrigin = (event: NetlifyEvent) => {
   const allowedOrigins = getAllowedOrigins();
   const origin = getHeader(event.headers, "origin");
   const referer = getHeader(event.headers, "referer");
@@ -135,24 +156,26 @@ export const validateAllowedOrigin = (event) => {
 
 export const methodNotAllowed = () => jsonResponse(405, { error: "Method Not Allowed" });
 
-export const errorResponse = (error, fallbackMessage) => {
-  const statusCode = error.statusCode || error.status || error.response?.status || 500;
-  const googleMessage = error.response?.data?.error?.message;
-  const message = googleMessage || error.message || fallbackMessage;
-  const headers = error.clearSessionCookie
-    ? { "Set-Cookie": error.clearSessionCookie }
-    : {};
+export const errorResponse = (error: unknown) => {
+  if (error instanceof HttpError) {
+    const headers = error.clearSessionCookie
+      ? { "Set-Cookie": error.clearSessionCookie }
+      : {};
 
-  if (statusCode >= 500) {
-    console.error(fallbackMessage, error);
+    return jsonResponse(
+      error.statusCode,
+      {
+        error: error.message,
+        code: error.code,
+      },
+      headers,
+    );
   }
 
-  return jsonResponse(
-    statusCode,
-    {
-      error: statusCode >= 500 ? `${fallbackMessage}: ${message}` : message,
-      code: error.code || "UNKNOWN_ERROR",
-    },
-    headers,
-  );
+  console.error("Unhandled API error", error);
+
+  return jsonResponse(500, {
+    error: "요청 처리 중 오류가 발생했습니다.",
+    code: "INTERNAL_ERROR",
+  });
 };

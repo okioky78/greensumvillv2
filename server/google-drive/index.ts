@@ -1,9 +1,14 @@
 import { Readable } from "stream";
-import { google } from "googleapis";
-import { createHttpError } from "../shared/http.js";
-import { withUpstreamTimeout } from "../shared/upstream.js";
+import { google, type drive_v3 } from "googleapis";
+import type { OAuth2Client } from "google-auth-library";
+import { createHttpError } from "../shared/http.ts";
+import { withUpstreamTimeout } from "../shared/upstream.ts";
+import type { UploadedFile } from "../shared/types.ts";
 
 const FOLDER_MIME_TYPE = "application/vnd.google-apps.folder";
+
+export type DriveClient = drive_v3.Drive;
+export type DriveFolder = Pick<drive_v3.Schema$File, "id" | "name">;
 
 export const getDriveConfig = () => {
   const driveRootFolderId = (process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID || "").trim();
@@ -15,10 +20,10 @@ export const getDriveConfig = () => {
   return { driveRootFolderId };
 };
 
-export const createDriveClient = (auth) => google.drive({ version: "v3", auth });
+export const createDriveClient = (auth: OAuth2Client) => google.drive({ version: "v3", auth });
 
 export const requireDriveRootAccess = async (
-  drive,
+  drive: DriveClient,
   driveRootFolderId = getDriveConfig().driveRootFolderId,
 ) => {
   try {
@@ -40,7 +45,13 @@ export const requireDriveRootAccess = async (
 
     return response.data;
   } catch (error) {
-    const statusCode = error.statusCode || error.status || error.response?.status;
+    const responseError = error as {
+      statusCode?: number;
+      status?: number;
+      response?: { status?: number };
+    };
+    const statusCode =
+      responseError.statusCode || responseError.status || responseError.response?.status;
     if (statusCode === 403 || statusCode === 404) {
       throw createHttpError(
         "이 Google 계정은 영수증 저장 폴더에 접근할 수 없습니다. 관리자에게 폴더 공유 권한을 요청해 주세요.",
@@ -53,11 +64,15 @@ export const requireDriveRootAccess = async (
   }
 };
 
-const escapeDriveQueryValue = (value) => (value || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+const escapeDriveQueryValue = (value: string) =>
+  (value || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 
-export const listDirectChildFolders = async (drive, driveRootFolderId = getDriveConfig().driveRootFolderId) => {
-  const folders = [];
-  let pageToken;
+export const listDirectChildFolders = async (
+  drive: DriveClient,
+  driveRootFolderId = getDriveConfig().driveRootFolderId,
+) => {
+  const folders: DriveFolder[] = [];
+  let pageToken: string | undefined;
 
   do {
     const response = await withDriveTimeout(
@@ -75,14 +90,24 @@ export const listDirectChildFolders = async (drive, driveRootFolderId = getDrive
       }),
     );
 
-    folders.push(...(response.data.files || []));
-    pageToken = response.data.nextPageToken;
+    folders.push(...((response.data.files || []) as DriveFolder[]));
+    pageToken = response.data.nextPageToken ?? undefined;
   } while (pageToken);
 
   return folders;
 };
 
-export const resolveBranchFolderId = async ({ drive, driveRootFolderId = getDriveConfig().driveRootFolderId, branch }) => {
+interface ResolveBranchFolderIdInput {
+  drive: DriveClient;
+  driveRootFolderId?: string;
+  branch?: string;
+}
+
+export const resolveBranchFolderId = async ({
+  drive,
+  driveRootFolderId = getDriveConfig().driveRootFolderId,
+  branch,
+}: ResolveBranchFolderIdInput) => {
   const normalizedBranch = (branch || "").trim();
 
   if (!normalizedBranch) {
@@ -106,10 +131,17 @@ export const resolveBranchFolderId = async ({ drive, driveRootFolderId = getDriv
     throw createHttpError(`'${normalizedBranch}' 이름의 Google Drive 폴더가 여러 개 있습니다. 부모 폴더 아래 폴더명을 하나로 정리해 주세요.`, 400, "DUPLICATED_BRANCH_FOLDER");
   }
 
-  return matchedFolders[0].id;
+  return matchedFolders[0].id as string;
 };
 
-export const uploadDriveFile = async ({ drive, folderId, filename, file }) => {
+interface UploadDriveFileInput {
+  drive: DriveClient;
+  folderId: string;
+  filename: string;
+  file: UploadedFile;
+}
+
+export const uploadDriveFile = async ({ drive, folderId, filename, file }: UploadDriveFileInput) => {
   const response = await withDriveTimeout(
     drive.files.create({
       supportsAllDrives: true,
@@ -135,7 +167,12 @@ export const uploadDriveFile = async ({ drive, folderId, filename, file }) => {
   };
 };
 
-export const deleteDriveFile = async ({ drive, fileId }) => {
+interface DeleteDriveFileInput {
+  drive: DriveClient;
+  fileId?: string | null;
+}
+
+export const deleteDriveFile = async ({ drive, fileId }: DeleteDriveFileInput) => {
   if (!fileId) return;
 
   await withDriveTimeout(
@@ -146,7 +183,7 @@ export const deleteDriveFile = async ({ drive, fileId }) => {
   );
 };
 
-const withDriveTimeout = (operation) =>
+const withDriveTimeout = <T>(operation: Promise<T>) =>
   withUpstreamTimeout(operation, {
     message: "Google Drive 응답 시간이 초과되었습니다.",
     code: "DRIVE_TIMEOUT",
