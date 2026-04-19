@@ -7,9 +7,13 @@ const ALLOWED_IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".gif", ".web
 
 export const MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024;
 
+const getErrorMessage = (error: unknown) =>
+  error instanceof Error ? error.message : "";
+
 export const isSupportedImageUpload = ({ filename, mimeType }: UploadedFile) => {
   const normalizedMimeType = (mimeType || "").toLowerCase();
-  const extension = filename?.includes(".") ? `.${filename.split(".").pop().toLowerCase()}` : "";
+  const extensionStart = filename.lastIndexOf(".");
+  const extension = extensionStart >= 0 ? filename.slice(extensionStart).toLowerCase() : "";
 
   if (normalizedMimeType.startsWith("image/")) return true;
 
@@ -91,7 +95,7 @@ export const parseMultipartFormData = (event: NetlifyEvent) =>
     });
 
     busboy.on("error", (error) => {
-      finish(createHttpError(error.message || "업로드 요청을 읽는 중 오류가 발생했습니다.", 400, "INVALID_MULTIPART"));
+      finish(createHttpError(getErrorMessage(error) || "업로드 요청을 읽는 중 오류가 발생했습니다.", 400, "INVALID_MULTIPART"));
     });
 
     busboy.on("finish", () => {

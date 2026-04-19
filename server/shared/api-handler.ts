@@ -31,8 +31,11 @@ export type ApiHandlerCallback = (
 const findHeaderName = (headers: Headers = {}, targetHeader: string) =>
   Object.keys(headers).find((name) => name.toLowerCase() === targetHeader.toLowerCase());
 
-const toHeaderValues = (value: string | string[] | undefined) =>
-  (Array.isArray(value) ? value : [value]).filter(Boolean);
+const isString = (value: string | undefined): value is string =>
+  typeof value === "string";
+
+const toHeaderValues = (value: string | string[] | undefined): string[] =>
+  (Array.isArray(value) ? value : [value]).filter(isString);
 
 const withOptionalSetCookie = (response: ApiResponse, setCookie?: string) => {
   if (!response || !setCookie) return response;

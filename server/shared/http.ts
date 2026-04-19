@@ -158,9 +158,9 @@ export const methodNotAllowed = () => jsonResponse(405, { error: "Method Not All
 
 export const errorResponse = (error: unknown) => {
   if (error instanceof HttpError) {
-    const headers = error.clearSessionCookie
+    const headers: Record<string, string> | undefined = error.clearSessionCookie
       ? { "Set-Cookie": error.clearSessionCookie }
-      : {};
+      : undefined;
 
     return jsonResponse(
       error.statusCode,
