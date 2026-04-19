@@ -1,19 +1,22 @@
+import { useDropzone } from "react-dropzone";
 import { FileText, RotateCcw, Upload } from "lucide-react";
-import { useDropzone, type DropzoneOptions } from "react-dropzone";
+
 import {
   DROPZONE_ACCEPT,
   HEIC_PREVIEW_VALUE,
   MAX_UPLOAD_SIZE_BYTES,
   getDropRejectionMessage,
-} from "../../../shared/imageUpload";
+} from "../model/imageUpload";
 
-interface UploadDropzoneProps {
+import type { DropzoneOptions } from "react-dropzone";
+
+type UploadDropzoneProps = {
   file: File | null;
   preview: string | null;
   onFileSelect: (file: File) => void;
   onFileReject: (message: string) => void;
   onReset: () => void;
-}
+};
 
 const UPLOAD_BOX_STYLES = {
   idle: {
@@ -46,21 +49,25 @@ const UPLOAD_BOX_PROMPTS = {
 } as const;
 
 export const UploadDropzone = ({ file, preview, onFileSelect, onFileReject, onReset }: UploadDropzoneProps) => {
+  const handleDropAccepted: DropzoneOptions["onDropAccepted"] = (acceptedFiles) => {
+    const selectedFile = acceptedFiles[0];
+    if (selectedFile) onFileSelect(selectedFile);
+  };
+
+  const handleDropRejected: DropzoneOptions["onDropRejected"] = (fileRejections) => {
+    onFileReject(getDropRejectionMessage(fileRejections));
+  };
+
   const dropzoneOptions: DropzoneOptions = {
     accept: DROPZONE_ACCEPT,
     multiple: false,
     maxFiles: 1,
     maxSize: MAX_UPLOAD_SIZE_BYTES,
-    onDropAccepted: (acceptedFiles) => {
-      const selectedFile = acceptedFiles[0];
-      if (selectedFile) onFileSelect(selectedFile);
-    },
-    onDropRejected: (fileRejections) => {
-      onFileReject(getDropRejectionMessage(fileRejections));
-    },
+    onDropAccepted: handleDropAccepted,
+    onDropRejected: handleDropRejected,
     onDragEnter: undefined,
-    onDragOver: undefined,
     onDragLeave: undefined,
+    onDragOver: undefined,
   };
 
   const { getRootProps, getInputProps, isDragActive, isDragReject } = useDropzone(dropzoneOptions);

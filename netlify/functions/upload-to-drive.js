@@ -7,7 +7,13 @@ import {
 } from "../../server/google-drive/index.js";
 import { getAuthenticatedOAuthClient } from "../../server/google-oauth/index.js";
 import { buildReceiptDriveFilename } from "../../server/shared/filename.js";
-import { errorResponse, jsonResponse, methodNotAllowed, validateAllowedOrigin } from "../../server/shared/http.js";
+import {
+  errorResponse,
+  headersWithOptionalCookie,
+  jsonResponse,
+  methodNotAllowed,
+  validateAllowedOrigin,
+} from "../../server/shared/http.js";
 import { parseMultipartFormData } from "../../server/shared/multipart.js";
 
 export const handler = async (event) => {
@@ -48,12 +54,15 @@ export const handler = async (event) => {
 
     uploadedDriveFileId = uploadedDriveFile.id;
 
-    return jsonResponse(200, {
-      ok: true,
-      message: "구글 드라이브에 저장 완료",
-      driveFileUrl: uploadedDriveFile.webViewLink,
-      filename,
-    }, setCookie ? { "Set-Cookie": setCookie } : {});
+    return jsonResponse(
+      200,
+      {
+        message: "구글 드라이브에 저장 완료",
+        driveFileUrl: uploadedDriveFile.webViewLink,
+        filename,
+      },
+      headersWithOptionalCookie(setCookie),
+    );
   } catch (error) {
     if (uploadedDriveFileId && rollbackDrive) {
       try {

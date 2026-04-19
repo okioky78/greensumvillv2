@@ -7,7 +7,7 @@ export const DROPZONE_ACCEPT = {
   "image/*": [".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".heif"],
 } as const;
 
-export function isHeicImage(file: File) {
+export const isHeicImage = (file: File) => {
   const filename = file.name.toLowerCase();
 
   return (
@@ -16,23 +16,23 @@ export function isHeicImage(file: File) {
     file.type === "image/heic" ||
     file.type === "image/heif"
   );
-}
+};
 
-export function createImagePreview(file: File) {
+export const createImagePreview = (file: File) => {
   if (isHeicImage(file)) {
     return HEIC_PREVIEW_VALUE;
   }
 
   return URL.createObjectURL(file);
-}
+};
 
-export function revokeImagePreview(preview: string | null) {
+export const revokeImagePreview = (preview: string | null) => {
   if (preview && preview !== HEIC_PREVIEW_VALUE) {
     URL.revokeObjectURL(preview);
   }
-}
+};
 
-export function getDropRejectionMessage(fileRejections: FileRejection[]) {
+export const getDropRejectionMessage = (fileRejections: FileRejection[]) => {
   if (fileRejections.some((rejection) => rejection.errors.some((error) => error.code === "too-many-files"))) {
     return "현재는 한 번에 하나의 이미지만 업로드할 수 있습니다.";
   }
@@ -42,5 +42,4 @@ export function getDropRejectionMessage(fileRejections: FileRejection[]) {
   }
 
   return "이미지 파일만 업로드할 수 있습니다.";
-}
-
+};

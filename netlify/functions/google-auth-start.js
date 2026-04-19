@@ -1,5 +1,5 @@
 import { createOAuthStart } from "../../server/google-oauth/index.js";
-import { errorResponse, methodNotAllowed } from "../../server/shared/http.js";
+import { errorResponse, methodNotAllowed, redirectResponse } from "../../server/shared/http.js";
 
 export const handler = async (event) => {
   if (event.httpMethod !== "GET") {
@@ -9,13 +9,7 @@ export const handler = async (event) => {
   try {
     const { authorizationUrl, stateCookie } = createOAuthStart();
 
-    return {
-      statusCode: 302,
-      headers: {
-        Location: authorizationUrl,
-        "Set-Cookie": stateCookie,
-      },
-    };
+    return redirectResponse(authorizationUrl, [stateCookie]);
   } catch (error) {
     return errorResponse(error, "Google 로그인 시작 실패");
   }

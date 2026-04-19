@@ -1,7 +1,7 @@
 import { motion } from "motion/react";
 import { Image as ImageIcon, Loader2, Save, Sparkles } from "lucide-react";
 
-interface SaveDetailsCardProps {
+type SaveDetailsCardProps = {
   file: File | null;
   branches: string[];
   selectedBranch: string;
@@ -17,7 +17,7 @@ interface SaveDetailsCardProps {
   onStudentNameChange: (studentName: string) => void;
   onExtractPaymentDate: () => void;
   onUploadToDrive: () => void;
-}
+};
 
 export const SaveDetailsCard = ({
   file,

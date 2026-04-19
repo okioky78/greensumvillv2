@@ -1,6 +1,7 @@
 import { Readable } from "stream";
 import { google } from "googleapis";
 import { createHttpError } from "../shared/http.js";
+import { withUpstreamTimeout } from "../shared/upstream.js";
 
 const FOLDER_MIME_TYPE = "application/vnd.google-apps.folder";
 
@@ -21,11 +22,13 @@ export const requireDriveRootAccess = async (
   driveRootFolderId = getDriveConfig().driveRootFolderId,
 ) => {
   try {
-    const response = await drive.files.get({
-      fileId: driveRootFolderId,
-      fields: "id,name,mimeType",
-      supportsAllDrives: true,
-    });
+    const response = await withDriveTimeout(
+      drive.files.get({
+        fileId: driveRootFolderId,
+        fields: "id,name,mimeType",
+        supportsAllDrives: true,
+      }),
+    );
 
     if (response.data.mimeType !== FOLDER_MIME_TYPE) {
       throw createHttpError(
@@ -57,18 +60,20 @@ export const listDirectChildFolders = async (drive, driveRootFolderId = getDrive
   let pageToken;
 
   do {
-    const response = await drive.files.list({
-      supportsAllDrives: true,
-      includeItemsFromAllDrives: true,
-      q: [
-        `'${escapeDriveQueryValue(driveRootFolderId)}' in parents`,
-        `mimeType = '${FOLDER_MIME_TYPE}'`,
-        "trashed = false",
-      ].join(" and "),
-      fields: "nextPageToken, files(id, name)",
-      pageSize: 100,
-      pageToken,
-    });
+    const response = await withDriveTimeout(
+      drive.files.list({
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
+        q: [
+          `'${escapeDriveQueryValue(driveRootFolderId)}' in parents`,
+          `mimeType = '${FOLDER_MIME_TYPE}'`,
+          "trashed = false",
+        ].join(" and "),
+        fields: "nextPageToken, files(id, name)",
+        pageSize: 100,
+        pageToken,
+      }),
+    );
 
     folders.push(...(response.data.files || []));
     pageToken = response.data.nextPageToken;
@@ -105,18 +110,20 @@ export const resolveBranchFolderId = async ({ drive, driveRootFolderId = getDriv
 };
 
 export const uploadDriveFile = async ({ drive, folderId, filename, file }) => {
-  const response = await drive.files.create({
-    supportsAllDrives: true,
-    requestBody: {
-      name: filename,
-      parents: [folderId],
-    },
-    media: {
-      mimeType: file.mimeType,
-      body: Readable.from(file.buffer),
-    },
-    fields: "id, webViewLink",
-  });
+  const response = await withDriveTimeout(
+    drive.files.create({
+      supportsAllDrives: true,
+      requestBody: {
+        name: filename,
+        parents: [folderId],
+      },
+      media: {
+        mimeType: file.mimeType,
+        body: Readable.from(file.buffer),
+      },
+      fields: "id, webViewLink",
+    }),
+  );
 
   if (!response.data.id) {
     throw createHttpError("Google Drive 업로드 결과를 확인할 수 없습니다.", 500, "DRIVE_UPLOAD_MISSING_ID");
@@ -131,8 +138,16 @@ export const uploadDriveFile = async ({ drive, folderId, filename, file }) => {
 export const deleteDriveFile = async ({ drive, fileId }) => {
   if (!fileId) return;
 
-  await drive.files.delete({
-    fileId,
-    supportsAllDrives: true,
-  });
+  await withDriveTimeout(
+    drive.files.delete({
+      fileId,
+      supportsAllDrives: true,
+    }),
+  );
 };
+
+const withDriveTimeout = (operation) =>
+  withUpstreamTimeout(operation, {
+    message: "Google Drive 응답 시간이 초과되었습니다.",
+    code: "DRIVE_TIMEOUT",
+  });

@@ -63,7 +63,7 @@ Drive 폴더 목록 조회와 기존 폴더 업로드를 위해 `https://www.goo
 
 향후 Next.js로 옮길 때는 이 모듈들을 Node Route Handler에서 호출하고, 해당 route에 `runtime = "nodejs"`를 명시해야 합니다.
 
-프론트엔드의 이미지 선택/드롭존과 preview 생성/해제도 `src/shared` 유틸로 분리되어 있어 다른 작은 앱으로 옮기기 쉽습니다.
+프론트엔드의 이미지 선택, 드롭존 정책, preview 생성/해제 로직은 `src/pages/receipt-drive-upload` 기능 내부에 모아 두었습니다. 앱 전체에서 재사용되는 API client와 에러 유틸만 `src/shared`에 둡니다.
 
 ## Removed Service Account Flow
 

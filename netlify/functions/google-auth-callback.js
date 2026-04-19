@@ -12,17 +12,13 @@ import {
   getDriveConfig,
   requireDriveRootAccess,
 } from "../../server/google-drive/index.js";
+import { redirectResponse } from "../../server/shared/http.js";
 
 const LEGACY_OAUTH_TOKEN_COOKIE = "greensum_oauth_tokens";
 
 export const handler = async (event) => {
   if (event.httpMethod !== "GET") {
-    return {
-      statusCode: 302,
-      headers: {
-        Location: getAuthRedirectUrl("authError=method-not-allowed"),
-      },
-    };
+    return redirectResponse(getAuthRedirectUrl("authError=method-not-allowed"));
   }
 
   try {
@@ -35,19 +31,11 @@ export const handler = async (event) => {
       getDriveConfig().driveRootFolderId,
     );
 
-    return {
-      statusCode: 302,
-      headers: {
-        Location: getAuthRedirectUrl("auth=success"),
-      },
-      multiValueHeaders: {
-        "Set-Cookie": [
-          createSessionCookie(session),
-          clearOAuthCookie(OAUTH_STATE_COOKIE),
-          clearOAuthCookie(LEGACY_OAUTH_TOKEN_COOKIE),
-        ],
-      },
-    };
+    return redirectResponse(getAuthRedirectUrl("auth=success"), [
+      createSessionCookie(session),
+      clearOAuthCookie(OAUTH_STATE_COOKIE),
+      clearOAuthCookie(LEGACY_OAUTH_TOKEN_COOKIE),
+    ]);
   } catch (error) {
     const message = encodeURIComponent(
       error.message || "Google 로그인에 실패했습니다.",
@@ -58,14 +46,6 @@ export const handler = async (event) => {
       clearOAuthCookie(LEGACY_OAUTH_TOKEN_COOKIE),
     ];
 
-    return {
-      statusCode: 302,
-      headers: {
-        Location: getAuthRedirectUrl(`authError=${message}`),
-      },
-      multiValueHeaders: {
-        "Set-Cookie": cookies,
-      },
-    };
+    return redirectResponse(getAuthRedirectUrl(`authError=${message}`), cookies);
   }
 };

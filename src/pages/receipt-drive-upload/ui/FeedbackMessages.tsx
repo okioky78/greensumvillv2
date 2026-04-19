@@ -1,11 +1,12 @@
 import { AnimatePresence, motion } from "motion/react";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
-import type { DriveUploadResponse } from "../../../shared/api";
 
-interface FeedbackMessagesProps {
+import type { DriveUploadResponse } from "../api/receiptDriveApi";
+
+type FeedbackMessagesProps = {
   error: string | null;
   success: DriveUploadResponse | null;
-}
+};
 
 export const FeedbackMessages = ({ error, success }: FeedbackMessagesProps) => (
   <>

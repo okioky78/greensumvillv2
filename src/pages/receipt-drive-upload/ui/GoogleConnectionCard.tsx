@@ -1,11 +1,11 @@
 import { Loader2, LogIn, LogOut } from "lucide-react";
 
-interface GoogleConnectionCardProps {
+type GoogleConnectionCardProps = {
   isAuthenticated: boolean;
   isAuthLoading: boolean;
   onLogin: () => void;
   onLogout: () => void;
-}
+};
 
 export const GoogleConnectionCard = ({
   isAuthenticated,

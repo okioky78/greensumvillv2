@@ -1,11 +1,9 @@
 import { useEffect, useState } from "react";
-import { createImagePreview, revokeImagePreview } from "../../../shared/imageUpload";
+import { createImagePreview, revokeImagePreview } from "./imageUpload";
 
 export const useImageSelection = () => {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-
-  useEffect(() => () => revokeImagePreview(preview), [preview]);
 
   const selectImage = (selectedFile: File) => {
     setFile(selectedFile);
@@ -22,6 +20,12 @@ export const useImageSelection = () => {
     setFile(null);
     setPreview(null);
   };
+
+  useEffect(function cleanupImagePreview() {
+    return function revokeCurrentPreview() {
+      revokeImagePreview(preview);
+    };
+  }, [preview]);
 
   return {
     file,

@@ -7,6 +7,7 @@ import {
   parseCookies,
   serializeCookie,
 } from "../shared/http.js";
+import { withUpstreamTimeout } from "../shared/upstream.js";
 
 export const OAUTH_SESSION_COOKIE = "greensum_oauth_session";
 export const OAUTH_STATE_COOKIE = "greensum_oauth_state";
@@ -149,10 +150,12 @@ const createSessionUserFromIdToken = async (oauth2Client, idToken, config) => {
     throw createHttpError("Google ID token이 없습니다. 다시 로그인해 주세요.", 401, "MISSING_ID_TOKEN");
   }
 
-  const ticket = await oauth2Client.verifyIdToken({
-    idToken,
-    audience: config.clientId,
-  });
+  const ticket = await withGoogleAuthTimeout(
+    oauth2Client.verifyIdToken({
+      idToken,
+      audience: config.clientId,
+    }),
+  );
   const payload = ticket.getPayload();
 
   if (!payload?.sub || !payload.email) {
@@ -185,7 +188,7 @@ export const createOAuthSessionFromCallback = async (event) => {
   }
 
   const oauth2Client = createOAuth2Client(config);
-  const { tokens } = await oauth2Client.getToken(params.code);
+  const { tokens } = await withGoogleAuthTimeout(oauth2Client.getToken(params.code));
   const user = await createSessionUserFromIdToken(oauth2Client, tokens.id_token, config);
   const previousSession = readOAuthSession(event, config);
   const previousRefreshToken =
@@ -245,9 +248,13 @@ export const getAuthenticatedOAuthClient = async (event) => {
   try {
     const expiryDate = storedTokens.expiry_date || 0;
     if (expiryDate <= Date.now() + TOKEN_REFRESH_SKEW_MS) {
-      await oauth2Client.getAccessToken();
+      await withGoogleAuthTimeout(oauth2Client.getAccessToken());
     }
   } catch (error) {
+    if (error.code === "GOOGLE_AUTH_TIMEOUT") {
+      throw error;
+    }
+
     error.clearSessionCookie = clearOAuthCookie(OAUTH_SESSION_COOKIE);
     throw createHttpError("Google 세션이 만료되었습니다. 다시 로그인해 주세요.", 401, "SESSION_REFRESH_FAILED");
   }
@@ -267,3 +274,9 @@ export const getAuthRedirectUrl = (query = "") => {
   const appOrigin = getAppOrigin();
   return `${appOrigin}/${query ? `?${query}` : ""}`;
 };
+
+const withGoogleAuthTimeout = (operation) =>
+  withUpstreamTimeout(operation, {
+    message: "Google 인증 응답 시간이 초과되었습니다.",
+    code: "GOOGLE_AUTH_TIMEOUT",
+  });

@@ -19,6 +19,34 @@ export const jsonResponse = (statusCode, body, headers = {}) => ({
   body: JSON.stringify(body),
 });
 
+export const headersWithOptionalCookie = (setCookie) =>
+  setCookie ? { "Set-Cookie": setCookie } : {};
+
+export const jsonResponseWithCookies = (statusCode, body, cookies = []) => ({
+  ...jsonResponse(statusCode, body),
+  ...(cookies.length
+    ? {
+        multiValueHeaders: {
+          "Set-Cookie": cookies,
+        },
+      }
+    : {}),
+});
+
+export const redirectResponse = (location, cookies = []) => ({
+  statusCode: 302,
+  headers: {
+    Location: location,
+  },
+  ...(cookies.length
+    ? {
+        multiValueHeaders: {
+          "Set-Cookie": cookies,
+        },
+      }
+    : {}),
+});
+
 export const getHeader = (headers, headerName) => {
   const target = headerName.toLowerCase();
 
@@ -105,7 +133,7 @@ export const validateAllowedOrigin = (event) => {
   }
 };
 
-export const methodNotAllowed = () => jsonResponse(405, { ok: false, error: "Method Not Allowed" });
+export const methodNotAllowed = () => jsonResponse(405, { error: "Method Not Allowed" });
 
 export const errorResponse = (error, fallbackMessage) => {
   const statusCode = error.statusCode || error.status || error.response?.status || 500;
@@ -122,7 +150,6 @@ export const errorResponse = (error, fallbackMessage) => {
   return jsonResponse(
     statusCode,
     {
-      ok: false,
       error: statusCode >= 500 ? `${fallbackMessage}: ${message}` : message,
       code: error.code || "UNKNOWN_ERROR",
     },
