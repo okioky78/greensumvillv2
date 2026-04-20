@@ -23,7 +23,7 @@ export const googleDriveMembershipFilter: ApiFilter = {
 
     apiContext.oauth2Client = auth.oauth2Client;
     apiContext.session = auth.session;
-    apiContext.setCookie = auth.setCookie;
+    apiContext.sessionRefreshCookie = auth.sessionRefreshCookie;
     apiContext.drive = createDriveClient(auth.oauth2Client);
   },
 };

@@ -52,7 +52,7 @@ export interface OAuthSession {
 export interface AuthenticatedOAuthContext {
   oauth2Client: OAuth2Client;
   session: OAuthSession;
-  setCookie?: string;
+  sessionRefreshCookie?: string;
 }
 
 export interface OAuthCookieOptions {
@@ -383,11 +383,11 @@ export const getAuthenticatedOAuthClient = async (
     lastUsedAt: shouldRefreshCookie ? now : getSessionLastUsedAt(session),
     tokens: refreshedTokens || storedTokens,
   };
-  const setCookie = shouldRefreshCookie
+  const sessionRefreshCookie = shouldRefreshCookie
     ? createSessionCookie(nextSession, cookieOptions, config)
     : undefined;
 
-  return { oauth2Client, session: nextSession, setCookie };
+  return { oauth2Client, session: nextSession, sessionRefreshCookie };
 };
 
 const withGoogleAuthTimeout = <T>(operation: Promise<T>) =>

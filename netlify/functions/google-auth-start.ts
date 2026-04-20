@@ -1,14 +1,11 @@
 import { Get } from "../../server/netlify-runtime/api-handler.ts";
-import { createOAuthStart } from "../../server/integrations/google-oauth.ts";
-import { usesSecureOrigin } from "../../server/netlify-runtime/app-origin.ts";
+import { startGoogleAuth } from "../../server/service/google-auth-start.ts";
 import { redirectResponse } from "../../server/shared/http.ts";
 
 export default Get(
   async () => {
-    const { authorizationUrl, stateCookie } = createOAuthStart({
-      secure: usesSecureOrigin(),
-    });
+    const { redirectUrl, cookies } = startGoogleAuth();
 
-    return redirectResponse(authorizationUrl, [stateCookie]);
+    return redirectResponse(redirectUrl, cookies);
   },
 );

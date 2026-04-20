@@ -28,13 +28,26 @@ export type ApiHandlerCallback = (
   context: RequiredApiContext,
 ) => Response | Promise<Response>;
 
+type InternalApiContextKey = "sessionRefreshCookie";
+type HandlerApiContext = Omit<ApiContext, InternalApiContextKey>;
+
 type RequiredApiContext = {
-  [Key in keyof ApiContext]-?: NonNullable<ApiContext[Key]>;
+  [Key in keyof HandlerApiContext]-?: NonNullable<HandlerApiContext[Key]>;
 };
+
+const internalApiContextKeys = new Set<PropertyKey>(["sessionRefreshCookie"]);
 
 const createRequiredApiContext = (apiContext: ApiContext) =>
   new Proxy(apiContext, {
     get(target, property, receiver) {
+      if (internalApiContextKeys.has(property)) {
+        throw createHttpError(
+          `API context "${String(property)}" is internal and cannot be used by handlers.`,
+          500,
+          "INTERNAL_API_CONTEXT",
+        );
+      }
+
       const value = Reflect.get(target, property, receiver);
 
       if (typeof property !== "symbol" && value == null) {
@@ -49,11 +62,11 @@ const createRequiredApiContext = (apiContext: ApiContext) =>
     },
   }) as RequiredApiContext;
 
-const withOptionalSetCookie = (response: Response, setCookie?: string) => {
-  if (!response || !setCookie) return response;
+const withOptionalSessionRefreshCookie = (response: Response, sessionRefreshCookie?: string) => {
+  if (!response || !sessionRefreshCookie) return response;
 
   const headers = new Headers(response.headers);
-  headers.append(SET_COOKIE_HEADER, setCookie);
+  headers.append(SET_COOKIE_HEADER, sessionRefreshCookie);
 
   return new Response(response.body, {
     status: response.status,
@@ -88,7 +101,7 @@ export const createApiHandler = (
 
       const response = await handler(createRequiredApiContext(apiContext));
 
-      return withOptionalSetCookie(response, apiContext.setCookie);
+      return withOptionalSessionRefreshCookie(response, apiContext.sessionRefreshCookie);
     } catch (error) {
       return errorResponse(error);
     }

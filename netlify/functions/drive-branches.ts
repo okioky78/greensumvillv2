@@ -1,18 +1,11 @@
 import { Get } from "../../server/netlify-runtime/api-handler.ts";
-import { getDriveConfig, listDirectChildFolders } from "../../server/integrations/google-drive.ts";
-import { createHttpError, jsonResponse } from "../../server/shared/http.ts";
+import { getDriveBranches } from "../../server/service/drive-branches.ts";
+import { jsonResponse } from "../../server/shared/http.ts";
 
 export default Get(
   async ({ drive }) => {
-    if (!drive) {
-      throw createHttpError("Google Drive 인증이 필요합니다.", 401, "DRIVE_AUTH_REQUIRED");
-    }
+    const body = await getDriveBranches(drive);
 
-    const { driveRootFolderId } = getDriveConfig();
-    const folders = await listDirectChildFolders(drive, driveRootFolderId);
-
-    return jsonResponse(200, {
-      branches: folders.map((folder) => ({ name: folder.name })),
-    });
+    return jsonResponse(200, body);
   },
 );
