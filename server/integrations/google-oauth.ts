@@ -8,7 +8,6 @@ import {
   parseCookies,
   serializeCookie,
 } from "../shared/http.ts";
-import { getAppOrigin } from "../shared/app-security.ts";
 import { withUpstreamTimeout } from "../shared/upstream.ts";
 
 export const OAUTH_SESSION_COOKIE = "greensum_oauth_session";
@@ -56,14 +55,9 @@ export interface AuthenticatedOAuthContext {
   setCookie?: string;
 }
 
-const usesSecureOrigin = () => {
-  if (process.env.NETLIFY_DEV === "true") return false;
-
-  const firstConfiguredOrigin = (process.env.APP_ORIGIN || "").split(",")[0]?.trim();
-  const origin = firstConfiguredOrigin || process.env.URL || "";
-
-  return origin.startsWith("https://");
-};
+export interface OAuthCookieOptions {
+  secure: boolean;
+}
 
 export const getOAuthConfig = (): OAuthConfig => {
   const clientId = (process.env.GOOGLE_OAUTH_CLIENT_ID || "").trim();
@@ -127,34 +121,38 @@ const decryptSession = (value: string | undefined, secret: string): OAuthSession
   return JSON.parse(decrypted.toString("utf8")) as OAuthSession;
 };
 
-const createCookieOptions = (maxAge: number) => ({
+const createCookieOptions = (maxAge: number, { secure }: OAuthCookieOptions) => ({
   httpOnly: true,
-  secure: usesSecureOrigin(),
+  secure,
   sameSite: "Lax" as const,
   path: "/",
   maxAge,
 });
 
-export const createStateCookie = (state: string) =>
-  serializeCookie(OAUTH_STATE_COOKIE, state, createCookieOptions(STATE_MAX_AGE_SECONDS));
+export const createStateCookie = (state: string, cookieOptions: OAuthCookieOptions) =>
+  serializeCookie(OAUTH_STATE_COOKIE, state, createCookieOptions(STATE_MAX_AGE_SECONDS, cookieOptions));
 
-export const createSessionCookie = (session: OAuthSession, config = getOAuthConfig()) =>
+export const createSessionCookie = (
+  session: OAuthSession,
+  cookieOptions: OAuthCookieOptions,
+  config = getOAuthConfig(),
+) =>
   serializeCookie(
     OAUTH_SESSION_COOKIE,
     encryptSession(session, config.cookieSecret),
-    createCookieOptions(SESSION_MAX_AGE_SECONDS),
+    createCookieOptions(SESSION_MAX_AGE_SECONDS, cookieOptions),
   );
 
-export const clearOAuthCookie = (name: string) =>
+export const clearOAuthCookie = (name: string, { secure }: OAuthCookieOptions) =>
   serializeCookie(name, "", {
     httpOnly: true,
-    secure: usesSecureOrigin(),
+    secure,
     sameSite: "Lax",
     path: "/",
     maxAge: 0,
   });
 
-export const createOAuthStart = () => {
+export const createOAuthStart = (cookieOptions: OAuthCookieOptions) => {
   const config = getOAuthConfig();
   const oauth2Client = createOAuth2Client(config);
   const state = crypto.randomBytes(32).toString("base64url");
@@ -168,7 +166,7 @@ export const createOAuthStart = () => {
 
   return {
     authorizationUrl,
-    stateCookie: createStateCookie(state),
+    stateCookie: createStateCookie(state, cookieOptions),
   };
 };
 
@@ -191,17 +189,26 @@ const getSessionLastUsedAt = (session: OAuthSession) => {
   return session.createdAt;
 };
 
-const createSessionExpiredError = (message: string, code: string) => {
+const createSessionExpiredError = (
+  message: string,
+  code: string,
+  cookieOptions: OAuthCookieOptions,
+) => {
   const error = createHttpError(message, 401, code);
-  error.clearSessionCookie = clearOAuthCookie(OAUTH_SESSION_COOKIE);
+  error.clearSessionCookie = clearOAuthCookie(OAUTH_SESSION_COOKIE, cookieOptions);
   return error;
 };
 
-const validateSessionLifetime = (session: OAuthSession, now = Date.now()) => {
+const validateSessionLifetime = (
+  session: OAuthSession,
+  cookieOptions: OAuthCookieOptions,
+  now = Date.now(),
+) => {
   if (!isValidTimestamp(session.createdAt)) {
     throw createSessionExpiredError(
       "Google 세션 정보를 확인할 수 없습니다. 다시 로그인해 주세요.",
       "INVALID_SESSION_CREATED_AT",
+      cookieOptions,
     );
   }
 
@@ -209,6 +216,7 @@ const validateSessionLifetime = (session: OAuthSession, now = Date.now()) => {
     throw createSessionExpiredError(
       "Google 세션이 만료되었습니다. 다시 로그인해 주세요.",
       "SESSION_ABSOLUTE_EXPIRED",
+      cookieOptions,
     );
   }
 
@@ -216,6 +224,7 @@ const validateSessionLifetime = (session: OAuthSession, now = Date.now()) => {
     throw createSessionExpiredError(
       "오랫동안 사용하지 않아 Google 세션이 만료되었습니다. 다시 로그인해 주세요.",
       "SESSION_IDLE_EXPIRED",
+      cookieOptions,
     );
   }
 };
@@ -315,6 +324,7 @@ export const createOAuthSessionFromCallback = async (
 
 export const getAuthenticatedOAuthClient = async (
   request: Request,
+  cookieOptions: OAuthCookieOptions,
 ): Promise<AuthenticatedOAuthContext> => {
   const config = getOAuthConfig();
   const session = readOAuthSession(request, config);
@@ -333,7 +343,7 @@ export const getAuthenticatedOAuthClient = async (
   }
 
   const now = Date.now();
-  validateSessionLifetime(session, now);
+  validateSessionLifetime(session, cookieOptions, now);
 
   const oauth2Client = createOAuth2Client(config);
   let refreshedTokens: OAuthSessionTokens | null = null;
@@ -362,6 +372,7 @@ export const getAuthenticatedOAuthClient = async (
     throw createSessionExpiredError(
       "Google 세션이 만료되었습니다. 다시 로그인해 주세요.",
       "SESSION_REFRESH_FAILED",
+      cookieOptions,
     );
   }
 
@@ -372,14 +383,11 @@ export const getAuthenticatedOAuthClient = async (
     lastUsedAt: shouldRefreshCookie ? now : getSessionLastUsedAt(session),
     tokens: refreshedTokens || storedTokens,
   };
-  const setCookie = shouldRefreshCookie ? createSessionCookie(nextSession, config) : undefined;
+  const setCookie = shouldRefreshCookie
+    ? createSessionCookie(nextSession, cookieOptions, config)
+    : undefined;
 
   return { oauth2Client, session: nextSession, setCookie };
-};
-
-export const getAuthRedirectUrl = (query = "") => {
-  const appOrigin = getAppOrigin();
-  return `${appOrigin}/${query ? `?${query}` : ""}`;
 };
 
 const withGoogleAuthTimeout = <T>(operation: Promise<T>) =>

@@ -1,5 +1,6 @@
 import { validateAllowedOrigin } from "../../shared/app-security.ts";
-import { Method } from "../../shared/types.ts";
+import { getAllowedOrigins } from "../app-origin.ts";
+import { Method } from "../types.ts";
 import type { ApiFilter } from "../types.ts";
 
 const originProtectedMethods: readonly Method[] = [
@@ -14,6 +15,6 @@ export const allowedOriginFilter: ApiFilter = {
   condition: (apiContext) =>
     originProtectedMethods.includes(apiContext.request.method as Method),
   apply: (apiContext) => {
-    validateAllowedOrigin(apiContext.request);
+    validateAllowedOrigin(apiContext.request, getAllowedOrigins());
   },
 };

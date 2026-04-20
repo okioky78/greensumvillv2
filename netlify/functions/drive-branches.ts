@@ -1,4 +1,4 @@
-import { Get } from "../../server/api-runtime/api-handler.ts";
+import { Get } from "../../server/netlify-runtime/api-handler.ts";
 import { getDriveConfig, listDirectChildFolders } from "../../server/integrations/google-drive.ts";
 import { createHttpError, jsonResponse } from "../../server/shared/http.ts";
 

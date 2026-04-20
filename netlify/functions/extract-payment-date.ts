@@ -1,7 +1,7 @@
-import { Post } from "../../server/api-runtime/api-handler.ts";
+import { Post } from "../../server/netlify-runtime/api-handler.ts";
 import { extractPaymentDateFromReceipt } from "../../server/integrations/receipt-ai.ts";
 import { jsonResponse } from "../../server/shared/http.ts";
-import { parseMultipartFormData } from "../../server/shared/multipart.ts";
+import { parseMultipartFormData } from "../../server/shared/image-multipart.ts";
 
 export default Post(
   async ({ request }) => {

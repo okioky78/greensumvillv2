@@ -1,4 +1,4 @@
-﻿import { Get } from "../../server/api-runtime/api-handler.ts";
+import { Get } from "../../server/netlify-runtime/api-handler.ts";
 import {
   createDriveClient,
   getDriveConfig,
@@ -11,8 +11,8 @@ import {
   createOAuth2Client,
   createOAuthSessionFromCallback,
   createSessionCookie,
-  getAuthRedirectUrl,
 } from "../../server/integrations/google-oauth.ts";
+import { getAuthRedirectUrl, usesSecureOrigin } from "../../server/netlify-runtime/app-origin.ts";
 import { redirectResponse } from "../../server/shared/http.ts";
 
 const LEGACY_OAUTH_TOKEN_COOKIE = "greensum_oauth_tokens";
@@ -22,6 +22,8 @@ const getErrorMessage = (error: unknown) =>
 
 export default Get(
   async ({ request }) => {
+    const cookieOptions = { secure: usesSecureOrigin() };
+
     try {
       const session = await createOAuthSessionFromCallback(request);
       const oauth2Client = createOAuth2Client();
@@ -33,16 +35,16 @@ export default Get(
       );
 
       return redirectResponse(getAuthRedirectUrl("auth=success"), [
-        createSessionCookie(session),
-        clearOAuthCookie(OAUTH_STATE_COOKIE),
-        clearOAuthCookie(LEGACY_OAUTH_TOKEN_COOKIE),
+        createSessionCookie(session, cookieOptions),
+        clearOAuthCookie(OAUTH_STATE_COOKIE, cookieOptions),
+        clearOAuthCookie(LEGACY_OAUTH_TOKEN_COOKIE, cookieOptions),
       ]);
     } catch (error) {
       const message = encodeURIComponent(getErrorMessage(error));
       const cookies = [
-        clearOAuthCookie(OAUTH_STATE_COOKIE),
-        clearOAuthCookie(OAUTH_SESSION_COOKIE),
-        clearOAuthCookie(LEGACY_OAUTH_TOKEN_COOKIE),
+        clearOAuthCookie(OAUTH_STATE_COOKIE, cookieOptions),
+        clearOAuthCookie(OAUTH_SESSION_COOKIE, cookieOptions),
+        clearOAuthCookie(LEGACY_OAUTH_TOKEN_COOKIE, cookieOptions),
       ];
 
       return redirectResponse(getAuthRedirectUrl(`authError=${message}`), cookies);

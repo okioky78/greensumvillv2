@@ -1,11 +1,11 @@
 import { allowedOriginFilter } from "./filters/allowed-origin-filter.ts";
-import { authenticatedDriveFilter } from "./filters/authenticated-drive-filter.ts";
+import { googleDriveMembershipFilter } from "./filters/google-drive-membership-filter.ts";
 import { errorResponse, methodNotAllowed } from "../shared/http.ts";
 import type { Context } from "@netlify/functions";
-import { Method, type Method as MethodValue } from "../shared/types.ts";
+import { Method, type Method as MethodValue } from "./types.ts";
 import type { ApiContext, ApiFilter } from "./types.ts";
 
-export { Method } from "../shared/types.ts";
+export { Method } from "./types.ts";
 
 const SET_COOKIE_HEADER = "Set-Cookie";
 
@@ -21,7 +21,7 @@ interface ApiHandlerConfig extends ApiHandlerOptions {
 
 const apiFilters: ApiFilter[] = [
   allowedOriginFilter,
-  authenticatedDriveFilter,
+  googleDriveMembershipFilter,
 ];
 
 export type ApiHandlerCallback = (

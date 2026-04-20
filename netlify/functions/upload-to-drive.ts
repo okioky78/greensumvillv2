@@ -1,13 +1,87 @@
-import { Post } from "../../server/api-runtime/api-handler.ts";
+import { Post } from "../../server/netlify-runtime/api-handler.ts";
 import {
   deleteDriveFile,
   getDriveConfig,
   resolveBranchFolderId,
   uploadDriveFile,
 } from "../../server/integrations/google-drive.ts";
-import { buildReceiptDriveFilename } from "../../server/shared/filename.ts";
+import { sanitizeFilenameSegment } from "../../server/shared/filename.ts";
 import { createHttpError, jsonResponse } from "../../server/shared/http.ts";
-import { parseMultipartFormData } from "../../server/shared/multipart.ts";
+import { parseMultipartFormData } from "../../server/shared/image-multipart.ts";
+
+const ALLOWED_IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".heif"]);
+
+const requireTextField = (value: unknown, message: string, code: string) => {
+  const text = String(value || "").trim();
+
+  if (!text) {
+    throw createHttpError(message, 400, code);
+  }
+
+  return text;
+};
+
+const getSafeImageExtension = (filename = "") => {
+  const extensionStart = filename.lastIndexOf(".");
+  const extension = extensionStart >= 0 ? filename.slice(extensionStart).toLowerCase() : "";
+
+  if (!ALLOWED_IMAGE_EXTENSIONS.has(extension)) {
+    throw createHttpError("지원하지 않는 이미지 확장자입니다.", 400, "UNSUPPORTED_EXTENSION");
+  }
+
+  return extension;
+};
+
+const normalizePaymentDate = (value: unknown) => {
+  const raw = String(value || "").trim();
+  const match = raw.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})$/);
+
+  if (!match) return raw;
+
+  const [, year, month, day] = match;
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+};
+
+const requirePaymentDate = (paymentDate: unknown) => {
+  const normalized = normalizePaymentDate(paymentDate);
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+    throw createHttpError("결제일은 YYYY-MM-DD 형식으로 입력해 주세요.", 400, "INVALID_PAYMENT_DATE");
+  }
+
+  return normalized;
+};
+
+const requireStudentName = (studentName: unknown) => {
+  const safeStudentName = sanitizeFilenameSegment(studentName, "");
+
+  if (!safeStudentName) {
+    throw createHttpError("학생 이름을 입력해 주세요.", 400, "MISSING_STUDENT_NAME");
+  }
+
+  return safeStudentName;
+};
+
+const buildReceiptDriveFilename = ({
+  paymentDate,
+  studentName,
+  originalFilename,
+}: {
+  paymentDate: string;
+  studentName: string;
+  originalFilename: string;
+}) => `${paymentDate}_${studentName}${getSafeImageExtension(originalFilename)}`;
+
+const parseReceiptDriveUploadInput = async (request: Request) => {
+  const { fields, file } = await parseMultipartFormData(request);
+
+  return {
+    file,
+    branch: requireTextField(fields.branch, "지점을 선택해 주세요.", "MISSING_BRANCH"),
+    paymentDate: requirePaymentDate(fields.paymentDate),
+    studentName: requireStudentName(fields.studentName),
+  };
+};
 
 export default Post(
   async ({ request, drive }) => {
@@ -18,18 +92,18 @@ export default Post(
     let uploadedDriveFileId: string | undefined;
 
     try {
-      const { fields, file } = await parseMultipartFormData(request);
+      const { branch, file, paymentDate, studentName } = await parseReceiptDriveUploadInput(request);
       const { driveRootFolderId } = getDriveConfig();
 
       const targetDriveFolderId = await resolveBranchFolderId({
         drive,
         driveRootFolderId,
-        branch: fields.branch,
+        branch,
       });
 
       const filename = buildReceiptDriveFilename({
-        paymentDate: fields.paymentDate,
-        studentName: fields.studentName,
+        paymentDate,
+        studentName,
         originalFilename: file.filename,
       });
 
