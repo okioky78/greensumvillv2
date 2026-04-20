@@ -1,3 +1,9 @@
+﻿import { Get } from "../../server/api-runtime/api-handler.ts";
+import {
+  createDriveClient,
+  getDriveConfig,
+  requireDriveRootAccess,
+} from "../../server/integrations/google-drive.ts";
 import {
   OAUTH_SESSION_COOKIE,
   OAUTH_STATE_COOKIE,
@@ -6,48 +12,40 @@ import {
   createOAuthSessionFromCallback,
   createSessionCookie,
   getAuthRedirectUrl,
-} from "../../server/google-oauth/index.ts";
-import {
-  createDriveClient,
-  getDriveConfig,
-  requireDriveRootAccess,
-} from "../../server/google-drive/index.ts";
+} from "../../server/integrations/google-oauth.ts";
 import { redirectResponse } from "../../server/shared/http.ts";
-import { Method, type NetlifyEvent } from "../../server/shared/types.ts";
 
 const LEGACY_OAUTH_TOKEN_COOKIE = "greensum_oauth_tokens";
 
 const getErrorMessage = (error: unknown) =>
-  error instanceof Error ? error.message : "Google 로그인에 실패했습니다.";
+  error instanceof Error ? error.message : "Google 濡쒓렇?몄뿉 ?ㅽ뙣?덉뒿?덈떎.";
 
-export const handler = async (event: NetlifyEvent) => {
-  if (event.httpMethod !== Method.Get) {
-    return redirectResponse(getAuthRedirectUrl("authError=method-not-allowed"));
-  }
+export default Get(
+  async ({ request }) => {
+    try {
+      const session = await createOAuthSessionFromCallback(request);
+      const oauth2Client = createOAuth2Client();
+      oauth2Client.setCredentials(session.tokens);
 
-  try {
-    const session = await createOAuthSessionFromCallback(event);
-    const oauth2Client = createOAuth2Client();
-    oauth2Client.setCredentials(session.tokens);
+      await requireDriveRootAccess(
+        createDriveClient(oauth2Client),
+        getDriveConfig().driveRootFolderId,
+      );
 
-    await requireDriveRootAccess(
-      createDriveClient(oauth2Client),
-      getDriveConfig().driveRootFolderId,
-    );
+      return redirectResponse(getAuthRedirectUrl("auth=success"), [
+        createSessionCookie(session),
+        clearOAuthCookie(OAUTH_STATE_COOKIE),
+        clearOAuthCookie(LEGACY_OAUTH_TOKEN_COOKIE),
+      ]);
+    } catch (error) {
+      const message = encodeURIComponent(getErrorMessage(error));
+      const cookies = [
+        clearOAuthCookie(OAUTH_STATE_COOKIE),
+        clearOAuthCookie(OAUTH_SESSION_COOKIE),
+        clearOAuthCookie(LEGACY_OAUTH_TOKEN_COOKIE),
+      ];
 
-    return redirectResponse(getAuthRedirectUrl("auth=success"), [
-      createSessionCookie(session),
-      clearOAuthCookie(OAUTH_STATE_COOKIE),
-      clearOAuthCookie(LEGACY_OAUTH_TOKEN_COOKIE),
-    ]);
-  } catch (error) {
-    const message = encodeURIComponent(getErrorMessage(error));
-    const cookies = [
-      clearOAuthCookie(OAUTH_STATE_COOKIE),
-      clearOAuthCookie(OAUTH_SESSION_COOKIE),
-      clearOAuthCookie(LEGACY_OAUTH_TOKEN_COOKIE),
-    ];
-
-    return redirectResponse(getAuthRedirectUrl(`authError=${message}`), cookies);
-  }
-};
+      return redirectResponse(getAuthRedirectUrl(`authError=${message}`), cookies);
+    }
+  },
+);

@@ -1,6 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { createHttpError } from "../shared/http.ts";
-import { normalizePaymentDate } from "../shared/filename.ts";
 import { withUpstreamTimeout } from "../shared/upstream.ts";
 import type { UploadedFile } from "../shared/types.ts";
 
@@ -28,6 +27,16 @@ const fileToGenerativePart = (file: UploadedFile) => ({
 interface PaymentDateExtractionResult {
   paymentDate?: string;
 }
+
+const normalizePaymentDate = (value: unknown) => {
+  const raw = String(value || "").trim();
+  const match = raw.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})$/);
+
+  if (!match) return raw;
+
+  const [, year, month, day] = match;
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+};
 
 export const extractPaymentDateFromReceipt = async (file: UploadedFile) => {
   const ai = new GoogleGenAI({ apiKey: getGeminiApiKey() });

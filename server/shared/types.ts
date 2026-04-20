@@ -1,9 +1,4 @@
-import type { DriveClient } from "../google-drive/index.ts";
-import type { AuthenticatedOAuthContext } from "../google-oauth/index.ts";
 import type { Buffer } from "buffer";
-
-export type HeaderValue = string | string[] | undefined;
-export type Headers = Record<string, HeaderValue>;
 
 export const Method = {
   Get: "GET",
@@ -15,33 +10,6 @@ export const Method = {
 } as const;
 
 export type Method = (typeof Method)[keyof typeof Method];
-
-export interface NetlifyEvent {
-  httpMethod: string;
-  path?: string;
-  rawUrl?: string;
-  headers: Headers;
-  body?: string | null;
-  isBase64Encoded?: boolean;
-  queryStringParameters?: Record<string, string | undefined> | null;
-}
-
-export interface NetlifyContext {
-  [key: string]: unknown;
-}
-
-export interface ApiContext extends Partial<AuthenticatedOAuthContext> {
-  event: NetlifyEvent;
-  context: NetlifyContext;
-  drive?: DriveClient;
-}
-
-export interface ApiResponse {
-  statusCode: number;
-  headers?: Record<string, string>;
-  multiValueHeaders?: Record<string, string[]>;
-  body?: string;
-}
 
 export interface UploadedFile {
   filename: string;

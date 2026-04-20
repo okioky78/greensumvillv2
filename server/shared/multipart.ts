@@ -1,14 +1,23 @@
-import Busboy from "busboy";
 import { createHttpError, getHeader } from "./http.ts";
 import { sanitizeFilenameSegment } from "./filename.ts";
-import type { MultipartFormData, NetlifyEvent, UploadedFile } from "./types.ts";
+import type { MultipartFormData, UploadedFile } from "./types.ts";
 
 const ALLOWED_IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".heif"]);
 
 export const MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024;
 
-const getErrorMessage = (error: unknown) =>
-  error instanceof Error ? error.message : "";
+const isFormDataFile = (value: FormDataEntryValue | null): value is File => {
+  if (typeof value !== "object" || value === null) return false;
+
+  const maybeFile = value as Partial<File>;
+
+  return (
+    typeof maybeFile.name === "string" &&
+    typeof maybeFile.type === "string" &&
+    typeof maybeFile.size === "number" &&
+    typeof maybeFile.arrayBuffer === "function"
+  );
+};
 
 export const isSupportedImageUpload = ({ filename, mimeType }: UploadedFile) => {
   const normalizedMimeType = (mimeType || "").toLowerCase();
@@ -20,111 +29,44 @@ export const isSupportedImageUpload = ({ filename, mimeType }: UploadedFile) => 
   return ALLOWED_IMAGE_EXTENSIONS.has(extension);
 };
 
-export const parseMultipartFormData = (event: NetlifyEvent) =>
-  new Promise<MultipartFormData>((resolve, reject) => {
-    const contentType = getHeader(event.headers, "content-type");
-    if (!contentType.includes("multipart/form-data")) {
-      reject(createHttpError("multipart/form-data 요청만 지원합니다.", 400, "INVALID_CONTENT_TYPE"));
-      return;
-    }
+export const parseMultipartFormData = async (request: Request): Promise<MultipartFormData> => {
+  const contentType = getHeader(request.headers, "content-type");
+  if (!contentType.includes("multipart/form-data")) {
+    throw createHttpError("multipart/form-data 요청만 지원합니다.", 400, "INVALID_CONTENT_TYPE");
+  }
 
-    const busboy = Busboy({
-      headers: { "content-type": contentType },
-      limits: {
-        files: 1,
-        fileSize: MAX_UPLOAD_SIZE_BYTES,
-      },
-    });
+  const formData = await request.formData();
+  const fileValues = formData.getAll("file").filter(isFormDataFile);
 
-    const fields: Record<string, string> = {};
-    let uploadedFile: UploadedFile | null = null;
-    let fileTooLarge = false;
-    let filesLimitHit = false;
-    let settled = false;
+  if (fileValues.length > 1) {
+    throw createHttpError("현재는 한 번에 하나의 파일만 업로드할 수 있습니다.", 400, "TOO_MANY_FILES");
+  }
 
-    const finish = (error: unknown, result?: MultipartFormData) => {
-      if (settled) return;
-      settled = true;
+  const fileValue = fileValues[0];
+  if (!fileValue) {
+    throw createHttpError("업로드할 파일이 없습니다.", 400, "MISSING_FILE");
+  }
 
-      if (error) {
-        reject(error);
-        return;
-      }
+  if (fileValue.size > MAX_UPLOAD_SIZE_BYTES) {
+    throw createHttpError("10MB 이하의 이미지만 업로드할 수 있습니다.", 400, "FILE_TOO_LARGE");
+  }
 
-      if (!result) {
-        reject(createHttpError("업로드 요청을 처리하지 못했습니다.", 400, "INVALID_MULTIPART"));
-        return;
-      }
-
-      resolve(result);
-    };
-
-    busboy.on("field", (fieldName, value) => {
+  const fields: Record<string, string> = {};
+  formData.forEach((value, fieldName) => {
+    if (fieldName !== "file" && typeof value === "string") {
       fields[fieldName] = value;
-    });
-
-    busboy.on("file", (fieldName, fileStream, info) => {
-      if (fieldName !== "file") {
-        fileStream.resume();
-        return;
-      }
-
-      const chunks: Buffer[] = [];
-
-      fileStream.on("limit", () => {
-        fileTooLarge = true;
-      });
-
-      fileStream.on("data", (chunk: Buffer) => {
-        chunks.push(chunk);
-      });
-
-      fileStream.on("end", () => {
-        if (fileTooLarge) return;
-
-        uploadedFile = {
-          filename: sanitizeFilenameSegment(info.filename, "receipt"),
-          mimeType: info.mimeType || "application/octet-stream",
-          buffer: Buffer.concat(chunks),
-        };
-      });
-    });
-
-    busboy.on("filesLimit", () => {
-      filesLimitHit = true;
-    });
-
-    busboy.on("error", (error) => {
-      finish(createHttpError(getErrorMessage(error) || "업로드 요청을 읽는 중 오류가 발생했습니다.", 400, "INVALID_MULTIPART"));
-    });
-
-    busboy.on("finish", () => {
-      if (filesLimitHit) {
-        finish(createHttpError("현재는 한 번에 하나의 파일만 업로드할 수 있습니다.", 400, "TOO_MANY_FILES"));
-        return;
-      }
-
-      if (fileTooLarge) {
-        finish(createHttpError("10MB 이하의 이미지만 업로드할 수 있습니다.", 400, "FILE_TOO_LARGE"));
-        return;
-      }
-
-      if (!uploadedFile) {
-        finish(createHttpError("업로드할 파일이 없습니다.", 400, "MISSING_FILE"));
-        return;
-      }
-
-      if (!isSupportedImageUpload(uploadedFile)) {
-        finish(createHttpError("이미지 파일만 업로드할 수 있습니다.", 400, "UNSUPPORTED_FILE_TYPE"));
-        return;
-      }
-
-      finish(null, { fields, file: uploadedFile });
-    });
-
-    const bodyBuffer = event.isBase64Encoded
-      ? Buffer.from(event.body || "", "base64")
-      : Buffer.from(event.body || "", "utf8");
-
-    busboy.end(bodyBuffer);
+    }
   });
+
+  const uploadedFile: UploadedFile = {
+    filename: sanitizeFilenameSegment(fileValue.name, "receipt"),
+    mimeType: fileValue.type || "application/octet-stream",
+    buffer: Buffer.from(await fileValue.arrayBuffer()),
+  };
+
+  if (!isSupportedImageUpload(uploadedFile)) {
+    throw createHttpError("이미지 파일만 업로드할 수 있습니다.", 400, "UNSUPPORTED_FILE_TYPE");
+  }
+
+  return { fields, file: uploadedFile };
+};

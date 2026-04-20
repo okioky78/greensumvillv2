@@ -1,8 +1,8 @@
-import { getDriveConfig, listDirectChildFolders } from "../../server/google-drive/index.ts";
-import { Get } from "../../server/shared/api-handler.ts";
+import { Get } from "../../server/api-runtime/api-handler.ts";
+import { getDriveConfig, listDirectChildFolders } from "../../server/integrations/google-drive.ts";
 import { createHttpError, jsonResponse } from "../../server/shared/http.ts";
 
-export const handler = Get(
+export default Get(
   async ({ drive }) => {
     if (!drive) {
       throw createHttpError("Google Drive 인증이 필요합니다.", 401, "DRIVE_AUTH_REQUIRED");

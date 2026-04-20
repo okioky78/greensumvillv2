@@ -1,5 +1,3 @@
-import type { ApiResponse, Headers, NetlifyEvent } from "./types.ts";
-
 export class HttpError extends Error {
   statusCode: number;
   code: string;
@@ -20,45 +18,46 @@ export const jsonResponse = (
   statusCode: number,
   body: unknown,
   headers: Record<string, string> = {},
-): ApiResponse => ({
-  statusCode,
-  headers: {
-    "Content-Type": "application/json",
-    ...headers,
-  },
-  body: JSON.stringify(body),
-});
+): Response =>
+  new Response(JSON.stringify(body), {
+    status: statusCode,
+    headers: {
+      "Content-Type": "application/json",
+      ...headers,
+    },
+  });
 
 export const jsonResponseWithCookies = (
   statusCode: number,
   body: unknown,
   cookies: string[] = [],
-): ApiResponse => ({
-  ...jsonResponse(statusCode, body),
-  ...(cookies.length
-    ? {
-        multiValueHeaders: {
-          "Set-Cookie": cookies,
-        },
-      }
-    : {}),
-});
+): Response => {
+  const response = jsonResponse(statusCode, body);
+  cookies.forEach((cookie) => response.headers.append("Set-Cookie", cookie));
 
-export const redirectResponse = (location: string, cookies: string[] = []): ApiResponse => ({
-  statusCode: 302,
-  headers: {
-    Location: location,
-  },
-  ...(cookies.length
-    ? {
-        multiValueHeaders: {
-          "Set-Cookie": cookies,
-        },
-      }
-    : {}),
-});
+  return response;
+};
 
-export const getHeader = (headers: Headers | undefined, headerName: string) => {
+export const redirectResponse = (location: string, cookies: string[] = []): Response => {
+  const response = new Response(null, {
+    status: 302,
+    headers: {
+      Location: location,
+    },
+  });
+
+  cookies.forEach((cookie) => response.headers.append("Set-Cookie", cookie));
+
+  return response;
+};
+
+type HeaderSource = Headers | Record<string, string | string[] | undefined> | undefined;
+
+export const getHeader = (headers: HeaderSource, headerName: string) => {
+  if (headers instanceof Headers) {
+    return headers.get(headerName) || "";
+  }
+
   const target = headerName.toLowerCase();
 
   for (const [key, value] of Object.entries(headers || {})) {
@@ -105,51 +104,8 @@ export const serializeCookie = (name: string, value: string, options: CookieOpti
   return parts.join("; ");
 };
 
-export const getRequestCookies = (event: NetlifyEvent) =>
-  parseCookies(getHeader(event.headers, "cookie"));
-
-export const getAllowedOrigins = () => {
-  const configuredOrigins = (process.env.APP_ORIGIN || "")
-    .split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean);
-  const netlifyUrl = (process.env.URL || "").trim();
-  const localOrigins = process.env.APP_ORIGIN
-
-  return Array.from(new Set([
-    ...configuredOrigins,
-    netlifyUrl,
-    ...localOrigins,
-  ].filter(Boolean)));
-};
-
-export const getAppOrigin = () => {
-  const origins = getAllowedOrigins();
-  if (!origins.length) {
-    throw createHttpError("APP_ORIGIN이 설정되지 않았습니다.", 500, "MISSING_APP_ORIGIN");
-  }
-
-  return origins[0];
-};
-
-export const validateAllowedOrigin = (event: NetlifyEvent) => {
-  const allowedOrigins = getAllowedOrigins();
-  const origin = getHeader(event.headers, "origin");
-  const referer = getHeader(event.headers, "referer");
-  let requestOrigin = origin;
-
-  if (!requestOrigin && referer) {
-    try {
-      requestOrigin = new URL(referer).origin;
-    } catch {
-      requestOrigin = "";
-    }
-  }
-
-  if (!requestOrigin || !allowedOrigins.includes(requestOrigin)) {
-    throw createHttpError("허용되지 않은 요청 출처입니다.", 403, "INVALID_ORIGIN");
-  }
-};
+export const getRequestCookies = (request: Request) =>
+  parseCookies(getHeader(request.headers, "cookie"));
 
 export const methodNotAllowed = () => jsonResponse(405, { error: "Method Not Allowed" });
 

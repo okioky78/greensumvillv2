@@ -1,24 +1,24 @@
+import { Post } from "../../server/api-runtime/api-handler.ts";
 import {
   deleteDriveFile,
   getDriveConfig,
   resolveBranchFolderId,
   uploadDriveFile,
-} from "../../server/google-drive/index.ts";
-import { Post } from "../../server/shared/api-handler.ts";
+} from "../../server/integrations/google-drive.ts";
 import { buildReceiptDriveFilename } from "../../server/shared/filename.ts";
 import { createHttpError, jsonResponse } from "../../server/shared/http.ts";
 import { parseMultipartFormData } from "../../server/shared/multipart.ts";
 
-export const handler = Post(
-  async ({ event, drive }) => {
+export default Post(
+  async ({ request, drive }) => {
     if (!drive) {
       throw createHttpError("Google Drive 인증이 필요합니다.", 401, "DRIVE_AUTH_REQUIRED");
     }
 
-    let uploadedDriveFileId = null;
+    let uploadedDriveFileId: string | undefined;
 
     try {
-      const { fields, file } = await parseMultipartFormData(event);
+      const { fields, file } = await parseMultipartFormData(request);
       const { driveRootFolderId } = getDriveConfig();
 
       const targetDriveFolderId = await resolveBranchFolderId({

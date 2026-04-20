@@ -1,11 +1,11 @@
-import { extractPaymentDateFromReceipt } from "../../server/receipt-ai/index.ts";
-import { Post } from "../../server/shared/api-handler.ts";
+import { Post } from "../../server/api-runtime/api-handler.ts";
+import { extractPaymentDateFromReceipt } from "../../server/integrations/receipt-ai.ts";
 import { jsonResponse } from "../../server/shared/http.ts";
 import { parseMultipartFormData } from "../../server/shared/multipart.ts";
 
-export const handler = Post(
-  async ({ event }) => {
-    const { file } = await parseMultipartFormData(event);
+export default Post(
+  async ({ request }) => {
+    const { file } = await parseMultipartFormData(request);
     const paymentDate = await extractPaymentDateFromReceipt(file);
 
     return jsonResponse(200, {

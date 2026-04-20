@@ -3,14 +3,13 @@ import { google } from "googleapis";
 import type { Credentials, OAuth2Client } from "google-auth-library";
 import {
   createHttpError,
-  getAppOrigin,
   getHeader,
   getRequestCookies,
   parseCookies,
   serializeCookie,
 } from "../shared/http.ts";
+import { getAppOrigin } from "../shared/app-security.ts";
 import { withUpstreamTimeout } from "../shared/upstream.ts";
-import type { NetlifyEvent } from "../shared/types.ts";
 
 export const OAUTH_SESSION_COOKIE = "greensum_oauth_session";
 export const OAUTH_STATE_COOKIE = "greensum_oauth_state";
@@ -173,8 +172,8 @@ export const createOAuthStart = () => {
   };
 };
 
-export const readOAuthSession = (event: NetlifyEvent, config = getOAuthConfig()) => {
-  const cookies = getRequestCookies(event);
+export const readOAuthSession = (request: Request, config = getOAuthConfig()) => {
+  const cookies = getRequestCookies(request);
 
   try {
     return decryptSession(cookies[OAUTH_SESSION_COOKIE], config.cookieSecret);
@@ -257,29 +256,32 @@ const createSessionUserFromIdToken = async (
 };
 
 export const createOAuthSessionFromCallback = async (
-  event: NetlifyEvent,
+  request: Request,
 ): Promise<OAuthSession> => {
   const config = getOAuthConfig();
-  const params = event.queryStringParameters || {};
-  const cookies = parseCookies(getHeader(event.headers, "cookie"));
+  const params = new URL(request.url).searchParams;
+  const cookies = parseCookies(getHeader(request.headers, "cookie"));
   const expectedState = cookies[OAUTH_STATE_COOKIE];
+  const oauthError = params.get("error");
+  const state = params.get("state");
+  const code = params.get("code");
 
-  if (params.error) {
-    throw createHttpError(`Google 로그인이 취소되었습니다. ${params.error}`, 400, "OAUTH_DENIED");
+  if (oauthError) {
+    throw createHttpError(`Google 로그인이 취소되었습니다. ${oauthError}`, 400, "OAUTH_DENIED");
   }
 
-  if (!params.state || !expectedState || params.state !== expectedState) {
+  if (!state || !expectedState || state !== expectedState) {
     throw createHttpError("OAuth state가 일치하지 않습니다.", 400, "INVALID_OAUTH_STATE");
   }
 
-  if (!params.code) {
+  if (!code) {
     throw createHttpError("OAuth authorization code가 없습니다.", 400, "MISSING_AUTH_CODE");
   }
 
   const oauth2Client = createOAuth2Client(config);
-  const { tokens } = await withGoogleAuthTimeout(oauth2Client.getToken(params.code));
+  const { tokens } = await withGoogleAuthTimeout(oauth2Client.getToken(code));
   const user = await createSessionUserFromIdToken(oauth2Client, tokens.id_token, config);
-  const previousSession = readOAuthSession(event, config);
+  const previousSession = readOAuthSession(request, config);
   const previousRefreshToken =
     previousSession?.user?.googleSubject === user.googleSubject
       ? previousSession?.tokens?.refresh_token
@@ -312,10 +314,10 @@ export const createOAuthSessionFromCallback = async (
 };
 
 export const getAuthenticatedOAuthClient = async (
-  event: NetlifyEvent,
+  request: Request,
 ): Promise<AuthenticatedOAuthContext> => {
   const config = getOAuthConfig();
-  const session = readOAuthSession(event, config);
+  const session = readOAuthSession(request, config);
   const storedTokens = session?.tokens;
 
   if (!storedTokens?.refresh_token) {
