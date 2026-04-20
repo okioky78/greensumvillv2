@@ -1,6 +1,6 @@
 import { allowedOriginFilter } from "./filters/allowed-origin-filter.ts";
 import { googleDriveMembershipFilter } from "./filters/google-drive-membership-filter.ts";
-import { errorResponse, methodNotAllowed } from "../shared/http.ts";
+import { createHttpError, errorResponse, methodNotAllowed } from "../shared/http.ts";
 import type { Context } from "@netlify/functions";
 import { Method, type Method as MethodValue } from "./types.ts";
 import type { ApiContext, ApiFilter } from "./types.ts";
@@ -25,8 +25,29 @@ const apiFilters: ApiFilter[] = [
 ];
 
 export type ApiHandlerCallback = (
-  context: ApiContext,
+  context: RequiredApiContext,
 ) => Response | Promise<Response>;
+
+type RequiredApiContext = {
+  [Key in keyof ApiContext]-?: NonNullable<ApiContext[Key]>;
+};
+
+const createRequiredApiContext = (apiContext: ApiContext) =>
+  new Proxy(apiContext, {
+    get(target, property, receiver) {
+      const value = Reflect.get(target, property, receiver);
+
+      if (typeof property !== "symbol" && value == null) {
+        throw createHttpError(
+          `Required API context "${String(property)}" is not available.`,
+          500,
+          "MISSING_API_CONTEXT",
+        );
+      }
+
+      return value;
+    },
+  }) as RequiredApiContext;
 
 const withOptionalSetCookie = (response: Response, setCookie?: string) => {
   if (!response || !setCookie) return response;
@@ -65,7 +86,7 @@ export const createApiHandler = (
       const apiContext: ApiContext = { request, context };
       await applyFilters(apiContext, filters);
 
-      const response = await handler(apiContext);
+      const response = await handler(createRequiredApiContext(apiContext));
 
       return withOptionalSetCookie(response, apiContext.setCookie);
     } catch (error) {

@@ -1,6 +1,5 @@
 import { Post } from "../../server/netlify-runtime/api-handler.ts";
 import {
-  deleteDriveFile,
   getDriveConfig,
   resolveBranchFolderId,
   uploadDriveFile,
@@ -85,52 +84,32 @@ const parseReceiptDriveUploadInput = async (request: Request) => {
 
 export default Post(
   async ({ request, drive }) => {
-    if (!drive) {
-      throw createHttpError("Google Drive 인증이 필요합니다.", 401, "DRIVE_AUTH_REQUIRED");
-    }
+    const { branch, file, paymentDate, studentName } = await parseReceiptDriveUploadInput(request);
+    const { driveRootFolderId } = getDriveConfig();
 
-    let uploadedDriveFileId: string | undefined;
+    const targetDriveFolderId = await resolveBranchFolderId({
+      drive,
+      driveRootFolderId,
+      branch,
+    });
 
-    try {
-      const { branch, file, paymentDate, studentName } = await parseReceiptDriveUploadInput(request);
-      const { driveRootFolderId } = getDriveConfig();
+    const filename = buildReceiptDriveFilename({
+      paymentDate,
+      studentName,
+      originalFilename: file.filename,
+    });
 
-      const targetDriveFolderId = await resolveBranchFolderId({
-        drive,
-        driveRootFolderId,
-        branch,
-      });
+    const uploadedDriveFile = await uploadDriveFile({
+      drive,
+      folderId: targetDriveFolderId,
+      filename,
+      file,
+    });
 
-      const filename = buildReceiptDriveFilename({
-        paymentDate,
-        studentName,
-        originalFilename: file.filename,
-      });
-
-      const uploadedDriveFile = await uploadDriveFile({
-        drive,
-        folderId: targetDriveFolderId,
-        filename,
-        file,
-      });
-
-      uploadedDriveFileId = uploadedDriveFile.id;
-
-      return jsonResponse(200, {
-        message: "구글 드라이브에 저장 완료",
-        driveFileUrl: uploadedDriveFile.webViewLink,
-        filename,
-      });
-    } catch (error) {
-      if (uploadedDriveFileId) {
-        try {
-          await deleteDriveFile({ drive, fileId: uploadedDriveFileId });
-        } catch (rollbackError) {
-          console.error("Drive rollback error:", rollbackError);
-        }
-      }
-
-      throw error;
-    }
+    return jsonResponse(200, {
+      message: "구글 드라이브에 저장 완료",
+      driveFileUrl: uploadedDriveFile.webViewLink,
+      filename,
+    });
   },
 );
