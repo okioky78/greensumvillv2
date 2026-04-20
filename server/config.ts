@@ -1,4 +1,17 @@
-import { createHttpError } from "../shared/http.ts";
+import { createApi } from "./netlify-runtime/api-handler.ts";
+import { allowedOriginFilter } from "./filters/allowed-origin-filter.ts";
+import { googleDriveMembershipFilter } from "./filters/google-drive-membership-filter.ts";
+import { createHttpError } from "./shared/http.ts";
+import type { ApiFilter } from "./netlify-runtime/types.ts";
+
+const appApiFilters: readonly ApiFilter[] = [
+  allowedOriginFilter,
+  googleDriveMembershipFilter,
+];
+
+export const api = createApi({
+  filters: appApiFilters,
+});
 
 export const getAllowedOrigins = () => {
   const configuredOrigins = (process.env.APP_ORIGIN || "")

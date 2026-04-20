@@ -1,5 +1,5 @@
 import { createOAuthStart } from "../integrations/google-oauth.ts";
-import { usesSecureOrigin } from "../netlify-runtime/app-origin.ts";
+import { usesSecureOrigin } from "../config.ts";
 
 export const startGoogleAuth = () => {
   const { authorizationUrl, stateCookie } = createOAuthStart({

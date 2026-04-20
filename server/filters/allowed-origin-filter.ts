@@ -1,7 +1,7 @@
-import { validateAllowedOrigin } from "../../shared/app-security.ts";
-import { getAllowedOrigins } from "../app-origin.ts";
-import { Method } from "../types.ts";
-import type { ApiFilter } from "../types.ts";
+import { validateAllowedOrigin } from "../shared/app-security.ts";
+import { getAllowedOrigins } from "../config.ts";
+import { Method } from "../netlify-runtime/types.ts";
+import type { ApiFilter } from "../netlify-runtime/types.ts";
 
 const originProtectedMethods: readonly Method[] = [
   Method.Post,

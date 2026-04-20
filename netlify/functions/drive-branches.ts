@@ -1,8 +1,8 @@
-import { Get } from "../../server/netlify-runtime/api-handler.ts";
+import { api } from "../../server/config.ts";
 import { getDriveBranches } from "../../server/service/drive-branches.ts";
 import { jsonResponse } from "../../server/shared/http.ts";
 
-export default Get(
+export default api.Get(
   async ({ drive }) => {
     const body = await getDriveBranches(drive);
 

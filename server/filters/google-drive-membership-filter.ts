@@ -1,7 +1,7 @@
-import { createDriveClient } from "../../integrations/google-drive.ts";
-import { getAuthenticatedOAuthClient } from "../../integrations/google-oauth.ts";
-import { usesSecureOrigin } from "../app-origin.ts";
-import type { ApiFilter } from "../types.ts";
+import { createDriveClient } from "../integrations/google-drive.ts";
+import { getAuthenticatedOAuthClient } from "../integrations/google-oauth.ts";
+import { usesSecureOrigin } from "../config.ts";
+import type { ApiFilter } from "../netlify-runtime/types.ts";
 
 const publicApiPaths = [
   "/api/google-auth-start",

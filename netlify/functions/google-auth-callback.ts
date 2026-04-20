@@ -1,8 +1,8 @@
-import { Get } from "../../server/netlify-runtime/api-handler.ts";
+import { api } from "../../server/config.ts";
 import { handleGoogleAuthCallback } from "../../server/service/google-auth-callback.ts";
 import { redirectResponse } from "../../server/shared/http.ts";
 
-export default Get(
+export default api.Get(
   async ({ request }) => {
     const { redirectUrl, cookies } = await handleGoogleAuthCallback(request);
 

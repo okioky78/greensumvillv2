@@ -11,7 +11,7 @@ import {
   createOAuthSessionFromCallback,
   createSessionCookie,
 } from "../integrations/google-oauth.ts";
-import { getAuthRedirectUrl, usesSecureOrigin } from "../netlify-runtime/app-origin.ts";
+import { getAuthRedirectUrl, usesSecureOrigin } from "../config.ts";
 
 const LEGACY_OAUTH_TOKEN_COOKIE = "greensum_oauth_tokens";
 
