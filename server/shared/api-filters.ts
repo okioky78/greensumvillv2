@@ -1,8 +1,7 @@
 import { createDriveClient } from "../google-drive/index.ts";
 import { getAuthenticatedOAuthClient } from "../google-oauth/index.ts";
 import { validateAllowedOrigin } from "./http.ts";
-import type { ApiContext } from "./api-context.ts";
-import type { Method } from "./types.ts";
+import type { ApiContext, Method } from "./types.ts";
 
 export type ApiFilterCondition = (apiContext: ApiContext) => boolean | Promise<boolean>;
 

@@ -1,3 +1,5 @@
+import type { DriveClient } from "../google-drive/index.ts";
+import type { AuthenticatedOAuthContext } from "../google-oauth/index.ts";
 import type { Buffer } from "buffer";
 
 export type HeaderValue = string | string[] | undefined;
@@ -28,6 +30,12 @@ export interface NetlifyContext {
   [key: string]: unknown;
 }
 
+export interface ApiContext extends Partial<AuthenticatedOAuthContext> {
+  event: NetlifyEvent;
+  context: NetlifyContext;
+  drive?: DriveClient;
+}
+
 export interface ApiResponse {
   statusCode: number;
   headers?: Record<string, string>;
@@ -47,3 +55,4 @@ export interface MultipartFormData {
   fields: MultipartFields;
   file: UploadedFile;
 }
+

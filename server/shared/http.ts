@@ -114,10 +114,7 @@ export const getAllowedOrigins = () => {
     .map((origin) => origin.trim())
     .filter(Boolean);
   const netlifyUrl = (process.env.URL || "").trim();
-  const localOrigins =
-    process.env.NETLIFY_DEV === "true" || (!configuredOrigins.length && !netlifyUrl)
-      ? ["http://localhost:8888"]
-      : [];
+  const localOrigins = process.env.APP_ORIGIN
 
   return Array.from(new Set([
     ...configuredOrigins,

@@ -1,8 +1,8 @@
 import { apiFilters } from "./api-filter-config.ts";
 import type { ApiFilter } from "./api-filters.ts";
 import { errorResponse, methodNotAllowed } from "./http.ts";
-import type { ApiContext } from "./api-context.ts";
 import type {
+  ApiContext,
   ApiResponse,
   Headers,
   NetlifyContext,
