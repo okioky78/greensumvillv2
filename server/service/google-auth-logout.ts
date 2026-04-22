@@ -6,7 +6,15 @@ import { usesSecureOrigin } from "../config.ts";
 
 const LEGACY_OAUTH_TOKEN_COOKIE = "greensum_oauth_tokens";
 
-export const logoutGoogleAuth = () => {
+interface GoogleAuthLogoutResult {
+  body: {
+    authenticated: false;
+    message: string;
+  };
+  cookies: string[];
+}
+
+export const logoutGoogleAuth = (): GoogleAuthLogoutResult => {
   const cookieOptions = { secure: usesSecureOrigin() };
 
   return {

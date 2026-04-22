@@ -15,10 +15,17 @@ import { getAuthRedirectUrl, usesSecureOrigin } from "../config.ts";
 
 const LEGACY_OAUTH_TOKEN_COOKIE = "greensum_oauth_tokens";
 
+interface GoogleAuthRedirectResult {
+  redirectUrl: string;
+  cookies: string[];
+}
+
 const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : "Google 로그인 처리 중 오류가 발생했습니다.";
 
-export const handleGoogleAuthCallback = async (request: Request) => {
+export const handleGoogleAuthCallback = async (
+  request: Request,
+): Promise<GoogleAuthRedirectResult> => {
   const cookieOptions = { secure: usesSecureOrigin() };
 
   try {

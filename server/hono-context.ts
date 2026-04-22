@@ -1,0 +1,37 @@
+import type { Context } from "hono";
+import type { OAuth2Client } from "google-auth-library";
+import type { DriveClient } from "./integrations/google-drive.ts";
+import type { OAuthSession } from "./integrations/google-oauth.ts";
+import { createHttpError } from "./shared/http.ts";
+
+export interface ApiHonoVariables {
+  drive?: DriveClient;
+  oauth2Client?: OAuth2Client;
+  session?: OAuthSession;
+}
+
+export interface ApiHonoEnv {
+  Variables: ApiHonoVariables;
+}
+
+export type ApiHonoContext = Context<ApiHonoEnv>;
+
+export const requireContextValue = <Key extends keyof ApiHonoVariables>(
+  context: ApiHonoContext,
+  key: Key,
+): NonNullable<ApiHonoVariables[Key]> => {
+  const value = context.get(key);
+
+  if (value == null) {
+    throw createHttpError(
+      `Required API context "${String(key)}" is not available.`,
+      500,
+      "MISSING_API_CONTEXT",
+    );
+  }
+
+  return value as NonNullable<ApiHonoVariables[Key]>;
+};
+
+export const requireDrive = (context: ApiHonoContext) =>
+  requireContextValue(context, "drive");
