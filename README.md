@@ -34,6 +34,7 @@ Netlify Functions에서 사용할 변수는 Netlify UI/CLI의 Functions scope에
 - `GOOGLE_OAUTH_COOKIE_SECRET`: OAuth 세션 쿠키 암호화용 비밀값
 - `APP_ORIGIN`: 앱 origin. 로컬 예시는 `http://localhost:8888`
 - `GOOGLE_DRIVE_ROOT_FOLDER_ID`: 지점 폴더들이 들어있는 Google Drive 부모 폴더 ID
+- `VITE_GOOGLE_DRIVE_ROOT_FOLDER_ID`: 푸터의 Google Drive 바로가기 링크에 사용할 폴더 ID. 브라우저에 노출되므로 Netlify secret 값으로 등록하지 않습니다.
 - `GEMINI_API_KEY`: 결제일 추출에 사용할 Gemini API key
 
 로컬 OAuth redirect URI 예시:
