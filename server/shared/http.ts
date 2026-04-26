@@ -115,7 +115,16 @@ export const getRequestCookies = (request: Request) =>
 
 export const methodNotAllowed = () => jsonResponse(405, { error: "Method Not Allowed" });
 
-export const errorResponse = (error: unknown) => {
+const getRequestLogContext = (request?: Request) => {
+  if (!request) return {};
+
+  return {
+    method: request.method,
+    path: new URL(request.url).pathname,
+  };
+};
+
+export const errorResponse = (error: unknown, request?: Request) => {
   if (error instanceof HttpError) {
     const headers: Record<string, string> | undefined = error.clearSessionCookie
       ? { "Set-Cookie": error.clearSessionCookie }
@@ -131,7 +140,10 @@ export const errorResponse = (error: unknown) => {
     );
   }
 
-  console.error("Unhandled API error", error);
+  console.error("Unhandled API error", {
+    ...getRequestLogContext(request),
+    error,
+  });
 
   return jsonResponse(500, {
     error: "요청 처리 중 오류가 발생했습니다.",

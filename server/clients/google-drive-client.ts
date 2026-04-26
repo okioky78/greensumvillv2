@@ -125,12 +125,6 @@ export const resolveBranchFolderId = async ({
   const childFolders = await listDirectChildFolders(drive, driveRootFolderId);
   const matchedFolders = childFolders.filter((folder) => (folder.name || "").trim() === normalizedBranch);
 
-  console.info("Drive branch folder lookup:", {
-    requestedBranch: normalizedBranch,
-    driveRootFolderId,
-    visibleChildFolderNames: childFolders.map((folder) => folder.name),
-  });
-
   if (matchedFolders.length === 0) {
     throw createHttpError(`'${normalizedBranch}' 지점과 같은 이름의 Google Drive 폴더를 찾을 수 없습니다.`, 400, "BRANCH_FOLDER_NOT_FOUND");
   }

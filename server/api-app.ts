@@ -18,7 +18,7 @@ import {
 
 const apiApp = new Hono<ApiHonoEnv>().basePath("/api");
 
-apiApp.onError((error) => errorResponse(error));
+apiApp.onError((error, context) => errorResponse(error, context.req.raw));
 
 apiApp.notFound(() =>
   jsonResponse(404, {
