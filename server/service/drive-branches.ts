@@ -2,7 +2,7 @@ import {
   getDriveConfig,
   listDirectChildFolders,
   type DriveClient,
-} from "../integrations/google-drive.ts";
+} from "../clients/google-drive-client.ts";
 
 export const getDriveBranches = async (drive: DriveClient) => {
   const { driveRootFolderId } = getDriveConfig();

@@ -4,7 +4,8 @@ import type { MultipartFormData, UploadedFile } from "./types.ts";
 
 const ALLOWED_IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".heif"]);
 
-export const MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024;
+export const MAX_UPLOAD_SIZE_BYTES = 4 * 1024 * 1024;
+export const MAX_UPLOAD_SIZE_LABEL = "4MB";
 
 const isFormDataFile = (value: FormDataEntryValue | null): value is File => {
   if (typeof value !== "object" || value === null) return false;
@@ -48,7 +49,7 @@ export const parseMultipartFormData = async (request: Request): Promise<Multipar
   }
 
   if (fileValue.size > MAX_UPLOAD_SIZE_BYTES) {
-    throw createHttpError("10MB 이하의 이미지만 업로드할 수 있습니다.", 400, "FILE_TOO_LARGE");
+    throw createHttpError(`${MAX_UPLOAD_SIZE_LABEL} 이하의 이미지만 업로드할 수 있습니다.`, 400, "FILE_TOO_LARGE");
   }
 
   const fields: Record<string, string> = {};

@@ -3,7 +3,7 @@ import {
   resolveBranchFolderId,
   uploadDriveFile,
   type DriveClient,
-} from "../integrations/google-drive.ts";
+} from "../clients/google-drive-client.ts";
 import { sanitizeFilenameSegment } from "../shared/filename.ts";
 import { createHttpError } from "../shared/http.ts";
 import { parseMultipartFormData } from "../shared/image-multipart.ts";

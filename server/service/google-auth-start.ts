@@ -1,4 +1,4 @@
-import { createOAuthStart } from "../integrations/google-oauth.ts";
+import { createOAuthStart } from "./oauth-session.ts";
 import { usesSecureOrigin } from "../config.ts";
 
 interface GoogleAuthRedirectResult {

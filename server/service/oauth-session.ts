@@ -1,6 +1,14 @@
 import crypto from "crypto";
-import { google } from "googleapis";
 import type { Credentials, OAuth2Client } from "google-auth-library";
+import {
+  createGoogleAuthorizationUrl,
+  createOAuth2Client,
+  exchangeGoogleAuthCode,
+  getOAuthConfig,
+  refreshGoogleAccessToken,
+  verifyGoogleIdToken,
+  type OAuthConfig,
+} from "../clients/google-oauth-client.ts";
 import {
   createHttpError,
   getHeader,
@@ -8,13 +16,9 @@ import {
   parseCookies,
   serializeCookie,
 } from "../shared/http.ts";
-import { withUpstreamTimeout } from "../shared/upstream.ts";
 
 export const OAUTH_SESSION_COOKIE = "greensum_oauth_session";
 export const OAUTH_STATE_COOKIE = "greensum_oauth_state";
-export const OPENID_SCOPE = "openid";
-export const EMAIL_SCOPE = "email";
-export const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
@@ -23,13 +27,6 @@ const SESSION_IDLE_TIMEOUT_MS = 7 * DAY_MS;
 const SESSION_TOUCH_INTERVAL_MS = 10 * 60 * 1000;
 const STATE_MAX_AGE_SECONDS = 60 * 10;
 const TOKEN_REFRESH_SKEW_MS = 60 * 1000;
-
-export interface OAuthConfig {
-  clientId: string;
-  clientSecret: string;
-  redirectUri: string;
-  cookieSecret: string;
-}
 
 export interface OAuthSessionUser {
   googleSubject: string;
@@ -58,31 +55,6 @@ export interface AuthenticatedOAuthContext {
 export interface OAuthCookieOptions {
   secure: boolean;
 }
-
-export const getOAuthConfig = (): OAuthConfig => {
-  const clientId = (process.env.GOOGLE_OAUTH_CLIENT_ID || "").trim();
-  const clientSecret = (process.env.GOOGLE_OAUTH_CLIENT_SECRET || "").trim();
-  const redirectUri = (process.env.GOOGLE_OAUTH_REDIRECT_URI || "").trim();
-  const cookieSecret = (process.env.GOOGLE_OAUTH_COOKIE_SECRET || "").trim();
-
-  if (!clientId || !clientSecret || !redirectUri || !cookieSecret) {
-    throw createHttpError(
-      "Google OAuth 설정이 누락되었습니다. GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, GOOGLE_OAUTH_REDIRECT_URI, GOOGLE_OAUTH_COOKIE_SECRET를 확인해 주세요.",
-      500,
-      "MISSING_OAUTH_CONFIG",
-    );
-  }
-
-  return {
-    clientId,
-    clientSecret,
-    redirectUri,
-    cookieSecret,
-  };
-};
-
-export const createOAuth2Client = (config = getOAuthConfig()) =>
-  new google.auth.OAuth2(config.clientId, config.clientSecret, config.redirectUri);
 
 const getEncryptionKey = (secret: string) => crypto.createHash("sha256").update(secret).digest();
 
@@ -156,13 +128,7 @@ export const createOAuthStart = (cookieOptions: OAuthCookieOptions) => {
   const config = getOAuthConfig();
   const oauth2Client = createOAuth2Client(config);
   const state = crypto.randomBytes(32).toString("base64url");
-  const authorizationUrl = oauth2Client.generateAuthUrl({
-    access_type: "offline",
-    prompt: "consent",
-    include_granted_scopes: true,
-    scope: [OPENID_SCOPE, EMAIL_SCOPE, DRIVE_SCOPE],
-    state,
-  });
+  const authorizationUrl = createGoogleAuthorizationUrl(oauth2Client, state);
 
   return {
     authorizationUrl,
@@ -241,12 +207,7 @@ const createSessionUserFromIdToken = async (
     throw createHttpError("Google ID token이 없습니다. 다시 로그인해 주세요.", 401, "MISSING_ID_TOKEN");
   }
 
-  const ticket = await withGoogleAuthTimeout(
-    oauth2Client.verifyIdToken({
-      idToken,
-      audience: config.clientId,
-    }),
-  );
+  const ticket = await verifyGoogleIdToken(oauth2Client, idToken, config.clientId);
   const payload = ticket.getPayload();
 
   if (!payload?.sub || !payload.email) {
@@ -288,7 +249,7 @@ export const createOAuthSessionFromCallback = async (
   }
 
   const oauth2Client = createOAuth2Client(config);
-  const { tokens } = await withGoogleAuthTimeout(oauth2Client.getToken(code));
+  const { tokens } = await exchangeGoogleAuthCode(oauth2Client, code);
   const user = await createSessionUserFromIdToken(oauth2Client, tokens.id_token, config);
   const previousSession = readOAuthSession(request, config);
   const previousRefreshToken =
@@ -361,7 +322,7 @@ export const getAuthenticatedOAuthClient = async (
   try {
     const expiryDate = storedTokens.expiry_date || 0;
     if (expiryDate <= now + TOKEN_REFRESH_SKEW_MS) {
-      await withGoogleAuthTimeout(oauth2Client.getAccessToken());
+      await refreshGoogleAccessToken(oauth2Client);
     }
   } catch (error) {
     const authError = error as { code?: string };
@@ -389,9 +350,3 @@ export const getAuthenticatedOAuthClient = async (
 
   return { oauth2Client, session: nextSession, sessionRefreshCookie };
 };
-
-const withGoogleAuthTimeout = <T>(operation: Promise<T>) =>
-  withUpstreamTimeout(operation, {
-    message: "Google 인증 응답 시간이 초과되었습니다.",
-    code: "GOOGLE_AUTH_TIMEOUT",
-  });

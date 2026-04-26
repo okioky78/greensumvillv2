@@ -41,33 +41,38 @@ const normalizePaymentDate = (value: unknown) => {
 export const extractPaymentDateFromReceipt = async (file: UploadedFile) => {
   const ai = new GoogleGenAI({ apiKey: getGeminiApiKey() });
   const response = await withUpstreamTimeout(
-    ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: [
-        {
-          parts: [
-            fileToGenerativePart(file),
-            {
-              text: [
-                "영수증 또는 매출전표 이미지에서 결제일만 추출해 주세요.",
-                "반드시 YYYY-MM-DD 형식으로 응답해 주세요.",
-                "결제일을 정확히 찾을 수 없으면 빈 문자열을 반환해 주세요.",
-              ].join("\n"),
-            },
-          ],
-        },
-      ],
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            paymentDate: { type: Type.STRING },
+    ({ signal, timeout }) =>
+      ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: [
+          {
+            parts: [
+              fileToGenerativePart(file),
+              {
+                text: [
+                  "영수증 또는 매출전표 이미지에서 결제일만 추출해 주세요.",
+                  "반드시 YYYY-MM-DD 형식으로 응답해 주세요.",
+                  "결제일을 정확히 찾을 수 없으면 빈 문자열을 반환해 주세요.",
+                ].join("\n"),
+              },
+            ],
           },
-          required: ["paymentDate"],
+        ],
+        config: {
+          abortSignal: signal,
+          httpOptions: {
+            timeout,
+          },
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              paymentDate: { type: Type.STRING },
+            },
+            required: ["paymentDate"],
+          },
         },
-      },
-    }),
+      }),
     {
       message: "AI 결제일 추출 응답 시간이 초과되었습니다.",
       code: "AI_TIMEOUT",

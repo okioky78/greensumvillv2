@@ -2,15 +2,15 @@ import {
   createDriveClient,
   getDriveConfig,
   requireDriveRootAccess,
-} from "../integrations/google-drive.ts";
+} from "../clients/google-drive-client.ts";
+import { createOAuth2Client } from "../clients/google-oauth-client.ts";
 import {
   OAUTH_SESSION_COOKIE,
   OAUTH_STATE_COOKIE,
   clearOAuthCookie,
-  createOAuth2Client,
   createOAuthSessionFromCallback,
   createSessionCookie,
-} from "../integrations/google-oauth.ts";
+} from "./oauth-session.ts";
 import { getAuthRedirectUrl, usesSecureOrigin } from "../config.ts";
 
 const LEGACY_OAUTH_TOKEN_COOKIE = "greensum_oauth_tokens";

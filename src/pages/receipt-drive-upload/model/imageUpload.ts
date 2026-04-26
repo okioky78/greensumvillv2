@@ -1,6 +1,7 @@
 import type { FileRejection } from "react-dropzone";
 
-export const MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024;
+export const MAX_UPLOAD_SIZE_BYTES = 4 * 1024 * 1024;
+export const MAX_UPLOAD_SIZE_LABEL = "4MB";
 export const HEIC_PREVIEW_VALUE = "heic";
 
 export const DROPZONE_ACCEPT = {
@@ -38,7 +39,7 @@ export const getDropRejectionMessage = (fileRejections: FileRejection[]) => {
   }
 
   if (fileRejections.some((rejection) => rejection.errors.some((error) => error.code === "file-too-large"))) {
-    return "10MB 이하의 이미지만 업로드할 수 있습니다.";
+    return `${MAX_UPLOAD_SIZE_LABEL} 이하의 이미지만 업로드할 수 있습니다.`;
   }
 
   return "이미지 파일만 업로드할 수 있습니다.";

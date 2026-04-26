@@ -1,7 +1,7 @@
 import { createMiddleware } from "hono/factory";
 import type { ApiHonoEnv } from "../hono-context.ts";
-import { createDriveClient } from "../integrations/google-drive.ts";
-import { getAuthenticatedOAuthClient } from "../integrations/google-oauth.ts";
+import { createDriveClient } from "../clients/google-drive-client.ts";
+import { getAuthenticatedOAuthClient } from "../service/oauth-session.ts";
 import { usesSecureOrigin } from "../config.ts";
 
 export const googleDriveMembershipMiddleware = createMiddleware<ApiHonoEnv>(

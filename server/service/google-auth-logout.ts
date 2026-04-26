@@ -1,7 +1,7 @@
 import {
   OAUTH_SESSION_COOKIE,
   clearOAuthCookie,
-} from "../integrations/google-oauth.ts";
+} from "./oauth-session.ts";
 import { usesSecureOrigin } from "../config.ts";
 
 const LEGACY_OAUTH_TOKEN_COOKIE = "greensum_oauth_tokens";

@@ -5,6 +5,7 @@ import {
   DROPZONE_ACCEPT,
   HEIC_PREVIEW_VALUE,
   MAX_UPLOAD_SIZE_BYTES,
+  MAX_UPLOAD_SIZE_LABEL,
   getDropRejectionMessage,
 } from "../model/imageUpload";
 
@@ -108,7 +109,7 @@ export const UploadDropzone = ({ file, preview, onFileSelect, onFileReject, onRe
               <Upload className={`h-8 w-8 ${uploadBoxStyle.icon}`} />
             </div>
             <p className="text-sm font-medium">{uploadPrompt}</p>
-            <p className="mt-1 text-xs text-neutral-400">PNG, JPG, WEBP, GIF, HEIC (최대 10MB, 한 번에 1개)</p>
+            <p className="mt-1 text-xs text-neutral-400">PNG, JPG, WEBP, GIF, HEIC (최대 {MAX_UPLOAD_SIZE_LABEL}, 한 번에 1개)</p>
           </div>
         )}
       </div>

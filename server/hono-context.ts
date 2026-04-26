@@ -1,7 +1,7 @@
 import type { Context } from "hono";
 import type { OAuth2Client } from "google-auth-library";
-import type { DriveClient } from "./integrations/google-drive.ts";
-import type { OAuthSession } from "./integrations/google-oauth.ts";
+import type { DriveClient } from "./clients/google-drive-client.ts";
+import type { OAuthSession } from "./service/oauth-session.ts";
 import { createHttpError } from "./shared/http.ts";
 
 export interface ApiHonoVariables {
