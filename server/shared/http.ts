@@ -80,7 +80,13 @@ export const parseCookies = (cookieHeader = ""): Record<string, string> =>
 
       const name = part.slice(0, separatorIndex).trim();
       const value = part.slice(separatorIndex + 1).trim();
-      cookies[name] = decodeURIComponent(value);
+
+      try {
+        cookies[name] = decodeURIComponent(value);
+      } catch {
+        return cookies;
+      }
+
       return cookies;
     }, {} as Record<string, string>);
 

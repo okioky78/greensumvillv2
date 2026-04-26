@@ -3,6 +3,15 @@ import { sanitizeFilenameSegment } from "./filename.ts";
 import type { MultipartFormData, UploadedFile } from "./types.ts";
 
 const ALLOWED_IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".heif"]);
+const HEIC_IMAGE_EXTENSIONS = new Set([".heic", ".heif"]);
+const ALLOWED_IMAGE_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+]);
 
 export const MAX_UPLOAD_SIZE_BYTES = 4 * 1024 * 1024;
 export const MAX_UPLOAD_SIZE_LABEL = "4MB";
@@ -25,9 +34,10 @@ export const isSupportedImageUpload = ({ filename, mimeType }: UploadedFile) => 
   const extensionStart = filename.lastIndexOf(".");
   const extension = extensionStart >= 0 ? filename.slice(extensionStart).toLowerCase() : "";
 
-  if (normalizedMimeType.startsWith("image/")) return true;
+  if (!ALLOWED_IMAGE_EXTENSIONS.has(extension)) return false;
+  if (ALLOWED_IMAGE_MIME_TYPES.has(normalizedMimeType)) return true;
 
-  return ALLOWED_IMAGE_EXTENSIONS.has(extension);
+  return HEIC_IMAGE_EXTENSIONS.has(extension) && normalizedMimeType === "application/octet-stream";
 };
 
 export const parseMultipartFormData = async (request: Request): Promise<MultipartFormData> => {

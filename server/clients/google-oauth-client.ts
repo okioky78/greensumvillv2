@@ -1,7 +1,7 @@
 import { google } from "googleapis";
 import type { OAuth2Client } from "google-auth-library";
 import { createHttpError } from "../shared/http.ts";
-import { withUpstreamTimeout } from "../shared/upstream.ts";
+import { withUpstreamTimeout, type UpstreamRequestOptions } from "../shared/upstream.ts";
 
 export const OPENID_SCOPE = "openid";
 export const EMAIL_SCOPE = "email";
@@ -52,7 +52,7 @@ export const createGoogleAuthorizationUrl = (
   });
 
 export const exchangeGoogleAuthCode = (oauth2Client: OAuth2Client, code: string) =>
-  withGoogleAuthTimeout(oauth2Client.getToken(code));
+  withGoogleAuthTimeout(oauth2Client, () => oauth2Client.getToken({ code }));
 
 export const verifyGoogleIdToken = (
   oauth2Client: OAuth2Client,
@@ -60,17 +60,40 @@ export const verifyGoogleIdToken = (
   audience: string,
 ) =>
   withGoogleAuthTimeout(
-    oauth2Client.verifyIdToken({
+    oauth2Client,
+    () => oauth2Client.verifyIdToken({
       idToken,
       audience,
     }),
   );
 
 export const refreshGoogleAccessToken = (oauth2Client: OAuth2Client) =>
-  withGoogleAuthTimeout(oauth2Client.getAccessToken());
+  withGoogleAuthTimeout(oauth2Client, () => oauth2Client.getAccessToken());
 
-const withGoogleAuthTimeout = <T>(operation: Promise<T>) =>
-  withUpstreamTimeout(operation, {
+const withGoogleAuthTimeout = <T>(
+  oauth2Client: OAuth2Client,
+  operation: () => Promise<T>,
+) =>
+  withUpstreamTimeout((requestOptions) => {
+    const previousDefaults = oauth2Client.transporter.defaults;
+
+    oauth2Client.transporter.defaults = {
+      ...previousDefaults,
+      ...createGoogleAuthRequestOptions(requestOptions),
+    };
+
+    return operation().finally(() => {
+      oauth2Client.transporter.defaults = previousDefaults;
+    });
+  }, {
     message: "Google 인증 응답 시간이 초과되었습니다.",
     code: "GOOGLE_AUTH_TIMEOUT",
   });
+
+const createGoogleAuthRequestOptions = ({ signal, timeout }: UpstreamRequestOptions) => ({
+  signal,
+  timeout,
+  retryConfig: {
+    totalTimeout: timeout,
+  },
+});
