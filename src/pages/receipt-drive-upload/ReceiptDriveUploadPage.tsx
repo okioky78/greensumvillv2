@@ -12,10 +12,9 @@ import {
   uploadReceiptToDrive,
 } from "./api/receiptDriveApi";
 import { getApiErrorMessage, isAuthRequiredError } from "../../shared/api";
-import { useDriveBranches } from "./model/useDriveBranches";
-import { useGoogleConnection } from "./model/useGoogleConnection";
-import { useImageSelection } from "./model/useImageSelection";
-import { validateReceiptDriveUpload } from "./model/validateReceiptDriveUpload";
+import { useDriveBranches } from "./hooks/useDriveBranches";
+import { useGoogleConnection } from "./hooks/useGoogleConnection";
+import { useImageSelection } from "./hooks/useImageSelection";
 
 export const ReceiptDriveUploadPage = () => {
   const imageSelection = useImageSelection();
@@ -44,7 +43,6 @@ export const ReceiptDriveUploadPage = () => {
 
   const driveBranches = useDriveBranches({
     enabled: googleConnection.isAuthenticated,
-    onAuthRequired: googleConnection.clearAuthenticatedState,
   });
 
   const { mutate: extractPaymentDate, isPending: isExtracting } = useMutation({
@@ -60,6 +58,7 @@ export const ReceiptDriveUploadPage = () => {
     imageSelection.selectImage(selectedFile);
     clearFeedback();
     setPaymentDate("");
+    setStudentName("");
   };
 
   const rejectFile = (message: string) => {
@@ -151,6 +150,12 @@ export const ReceiptDriveUploadPage = () => {
   };
 
   const visibleError = error || driveBranches.errorMessage;
+  const uploadRequirementMessage = getUploadRequirementMessage({
+    isAuthenticated: googleConnection.isAuthenticated,
+    paymentDate,
+    selectedBranch,
+    studentName,
+  });
   const canUpload = Boolean(
     imageSelection.file &&
       paymentDate &&
@@ -158,6 +163,12 @@ export const ReceiptDriveUploadPage = () => {
       selectedBranch &&
       googleConnection.isAuthenticated,
   );
+
+  useEffect(function clearSessionWhenBranchesRequireAuth() {
+    if (!driveBranches.isAuthRequired) return;
+
+    googleConnection.clearAuthenticatedState();
+  }, [driveBranches.isAuthRequired, googleConnection.clearAuthenticatedState]);
 
   useEffect(function syncSelectedBranchWithConnection() {
     setSelectedBranch((current) => {
@@ -208,6 +219,7 @@ export const ReceiptDriveUploadPage = () => {
                 isExtracting={isExtracting}
                 isUploading={isUploading}
                 canUpload={canUpload}
+                uploadRequirementMessage={uploadRequirementMessage}
                 onBranchChange={setSelectedBranch}
                 onPaymentDateChange={setPaymentDate}
                 onStudentNameChange={setStudentName}
@@ -224,4 +236,45 @@ export const ReceiptDriveUploadPage = () => {
       </div>
     </div>
   );
+};
+
+type UploadRequirementInput = {
+  isAuthenticated: boolean;
+  paymentDate: string;
+  selectedBranch: string;
+  studentName: string;
+};
+
+type ReceiptDriveUploadValidationInput = UploadRequirementInput & {
+  file: File | null;
+};
+
+const validateReceiptDriveUpload = ({
+  file,
+  isAuthenticated,
+  paymentDate,
+  selectedBranch,
+  studentName,
+}: ReceiptDriveUploadValidationInput) => {
+  if (!file) return "이미지를 먼저 선택해 주세요.";
+  if (!isAuthenticated) return "Google 로그인 후 저장할 수 있습니다.";
+  if (!selectedBranch) return "저장할 지점을 선택해 주세요.";
+  if (!paymentDate) return "결제일을 추출하거나 직접 입력해 주세요.";
+  if (!studentName.trim()) return "학생 이름을 입력해 주세요.";
+
+  return null;
+};
+
+const getUploadRequirementMessage = ({
+  isAuthenticated,
+  paymentDate,
+  selectedBranch,
+  studentName,
+}: UploadRequirementInput) => {
+  if (!isAuthenticated) return "Google 로그인 후 저장할 수 있습니다.";
+  if (!selectedBranch) return "저장할 지점을 선택해 주세요.";
+  if (!paymentDate) return "결제일을 추출하거나 직접 입력해 주세요.";
+  if (!studentName.trim()) return "학생 이름을 입력해 주세요.";
+
+  return null;
 };

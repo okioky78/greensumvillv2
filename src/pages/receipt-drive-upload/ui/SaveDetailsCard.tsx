@@ -12,6 +12,7 @@ type SaveDetailsCardProps = {
   isExtracting: boolean;
   isUploading: boolean;
   canUpload: boolean;
+  uploadRequirementMessage: string | null;
   onBranchChange: (branch: string) => void;
   onPaymentDateChange: (paymentDate: string) => void;
   onStudentNameChange: (studentName: string) => void;
@@ -30,6 +31,7 @@ export const SaveDetailsCard = ({
   isExtracting,
   isUploading,
   canUpload,
+  uploadRequirementMessage,
   onBranchChange,
   onPaymentDateChange,
   onStudentNameChange,
@@ -67,7 +69,7 @@ export const SaveDetailsCard = ({
             value={selectedBranch}
             onChange={(event) => onBranchChange(event.target.value)}
             disabled={!isAuthenticated || isBranchesLoading || branches.length === 0}
-            className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm font-medium outline-none transition focus:border-emerald-400 disabled:bg-neutral-50 disabled:text-neutral-400"
+            className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm font-medium outline-none transition focus:border-emerald-400 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:bg-neutral-50 disabled:text-neutral-400"
           >
             {branches.length === 0 ? (
               <option value="">{isBranchesLoading ? "지점 불러오는 중..." : "로그인 후 지점이 표시됩니다"}</option>
@@ -91,12 +93,13 @@ export const SaveDetailsCard = ({
               type="date"
               value={paymentDate}
               onChange={(event) => onPaymentDateChange(event.target.value)}
-              className="min-w-0 flex-1 rounded-xl border border-neutral-200 px-4 py-3 text-sm font-medium outline-none transition focus:border-emerald-400"
+              className="min-w-0 flex-1 rounded-xl border border-neutral-200 px-4 py-3 text-sm font-medium outline-none transition focus:border-emerald-400 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
             />
             <button
+              type="button"
               onClick={onExtractPaymentDate}
               disabled={!isAuthenticated || isExtracting}
-              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-emerald-200 px-4 py-3 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-emerald-200 px-4 py-3 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isExtracting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               {paymentDate ? "다시 추출" : "추출"}
@@ -113,14 +116,21 @@ export const SaveDetailsCard = ({
             value={studentName}
             onChange={(event) => onStudentNameChange(event.target.value)}
             placeholder="예: 홍길동"
-            className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-sm font-medium outline-none transition focus:border-emerald-400"
+            className="w-full rounded-xl border border-neutral-200 px-4 py-3 text-sm font-medium outline-none transition focus:border-emerald-400 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
           />
         </div>
 
+        {uploadRequirementMessage && (
+          <p className="rounded-lg bg-neutral-50 px-3 py-2 text-sm font-medium text-neutral-500" aria-live="polite">
+            {uploadRequirementMessage}
+          </p>
+        )}
+
         <button
+          type="button"
           onClick={onUploadToDrive}
           disabled={!canUpload || isUploading}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-4 font-semibold text-white transition-all hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-4 font-semibold text-white transition-all hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-neutral-300"
         >
           {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
           Google Drive에 저장

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createImagePreview, revokeImagePreview } from "./imageUpload";
+import { createImagePreview, revokeImagePreview } from "../lib/imageUpload";
 
 export const useImageSelection = () => {
   const [file, setFile] = useState<File | null>(null);

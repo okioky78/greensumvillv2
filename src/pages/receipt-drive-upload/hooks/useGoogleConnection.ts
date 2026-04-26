@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { getApiErrorMessage } from "../../../shared/api";
 import { logoutGoogle } from "../api/receiptDriveApi";
-import { clearLoginState, hasLoginState, setLoginState } from "./googleLoginState";
+import { clearLoginState, hasLoginState, setLoginState } from "../lib/googleLoginState";
 
 type UseGoogleConnectionOptions = {
   onError: (message: string) => void;

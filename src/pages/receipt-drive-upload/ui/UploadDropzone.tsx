@@ -7,7 +7,7 @@ import {
   MAX_UPLOAD_SIZE_BYTES,
   MAX_UPLOAD_SIZE_LABEL,
   getDropRejectionMessage,
-} from "../model/imageUpload";
+} from "../lib/imageUpload";
 
 import type { DropzoneOptions } from "react-dropzone";
 
@@ -80,7 +80,7 @@ export const UploadDropzone = ({ file, preview, onFileSelect, onFileReject, onRe
     <section className="space-y-6">
       <div
         {...getRootProps({
-          className: `relative flex min-h-[420px] cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 text-center transition-all ${uploadBoxStyle.box}`,
+          className: `relative flex min-h-[280px] cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 text-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 sm:min-h-[360px] md:min-h-[420px] ${uploadBoxStyle.box}`,
         })}
       >
         <input {...getInputProps()} />
@@ -95,7 +95,7 @@ export const UploadDropzone = ({ file, preview, onFileSelect, onFileReject, onRe
           <img
             src={preview}
             alt="업로드 이미지 미리보기"
-            className="mb-4 max-h-80 rounded-lg object-contain shadow-md"
+            className="mb-4 max-h-56 rounded-lg object-contain shadow-md md:max-h-80"
             referrerPolicy="no-referrer"
           />
         ) : file ? (
@@ -116,8 +116,9 @@ export const UploadDropzone = ({ file, preview, onFileSelect, onFileReject, onRe
 
       {file && (
         <button
+          type="button"
           onClick={onReset}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-neutral-200 py-4 font-semibold text-neutral-500 transition-all hover:bg-neutral-50"
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-neutral-200 py-4 font-semibold text-neutral-500 transition-all hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
         >
           <RotateCcw className="h-5 w-5" />
           다시 선택하기

@@ -6,7 +6,7 @@ export const PageFooter = () => (
       href="https://drive.google.com/drive/folders/1rPr-3rnY2PVHksqbVFdufTAs7hFYsnhP"
       target="_blank"
       rel="noreferrer"
-      className="mt-2 inline-block font-medium text-emerald-600 underline underline-offset-4 hover:text-emerald-700"
+      className="mt-2 inline-block rounded-sm font-medium text-emerald-600 underline underline-offset-4 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
     >
       Google Drive 바로가기
     </a>
