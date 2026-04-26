@@ -14,10 +14,16 @@ export const GoogleConnectionCard = ({
   onLogout,
 }: GoogleConnectionCardProps) => (
   <div className="rounded-2xl border border-neutral-100 bg-white p-6 shadow-sm">
-    <div className="mb-5 flex items-center justify-between gap-4">
+    <div className={isAuthenticated ? "flex items-center justify-between gap-4" : "mb-5 flex items-center justify-between gap-4"}>
       <h2 className="flex items-center gap-2 text-lg font-semibold">
         <LogIn className="h-5 w-5 text-neutral-400" />
         Google 연결
+        {isAuthenticated && (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            연결됨
+          </span>
+        )}
       </h2>
       {isAuthenticated ? (
         <button
@@ -38,12 +44,10 @@ export const GoogleConnectionCard = ({
         </button>
       )}
     </div>
-    <p className="text-sm text-neutral-500">
-      {isAuthLoading
-        ? "로그인 상태 확인 중..."
-        : isAuthenticated
-          ? "로그인한 Google 계정의 Drive 권한으로 저장합니다."
-          : "Drive에 저장하려면 Google 로그인이 필요합니다."}
-    </p>
+    {!isAuthenticated && (
+      <p className="text-sm text-neutral-500">
+        {isAuthLoading ? "로그인 상태 확인 중..." : "Drive에 저장하려면 Google 로그인이 필요합니다."}
+      </p>
+    )}
   </div>
 );
