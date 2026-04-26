@@ -4,6 +4,18 @@ import type { MultipartFormData, UploadedFile } from "./types.ts";
 
 const ALLOWED_IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".heif"]);
 const HEIC_IMAGE_EXTENSIONS = new Set([".heic", ".heif"]);
+const HEIF_BRANDS = new Set([
+  "heic",
+  "heix",
+  "hevc",
+  "hevx",
+  "heim",
+  "heis",
+  "hevm",
+  "hevs",
+  "mif1",
+  "msf1",
+]);
 const ALLOWED_IMAGE_MIME_TYPES = new Set([
   "image/jpeg",
   "image/png",
@@ -12,6 +24,7 @@ const ALLOWED_IMAGE_MIME_TYPES = new Set([
   "image/heic",
   "image/heif",
 ]);
+const OCTET_STREAM_MIME_TYPE = "application/octet-stream";
 
 export const MAX_UPLOAD_SIZE_BYTES = 4 * 1024 * 1024;
 export const MAX_UPLOAD_SIZE_LABEL = "4MB";
@@ -29,15 +42,47 @@ const isFormDataFile = (value: FormDataEntryValue | null): value is File => {
   );
 };
 
+const getFileExtension = (filename = "") => {
+  const extensionStart = filename.lastIndexOf(".");
+
+  return extensionStart >= 0 ? filename.slice(extensionStart).toLowerCase() : "";
+};
+
+const hasHeifSignature = (buffer: Buffer) => {
+  if (buffer.length < 12 || buffer.toString("ascii", 4, 8) !== "ftyp") return false;
+
+  const declaredBoxSize = buffer.readUInt32BE(0);
+  const brandsEnd =
+    declaredBoxSize > 16 && declaredBoxSize <= buffer.length
+      ? declaredBoxSize
+      : buffer.length;
+  const brands = [buffer.toString("ascii", 8, 12)];
+
+  for (let offset = 16; offset + 4 <= brandsEnd; offset += 4) {
+    brands.push(buffer.toString("ascii", offset, offset + 4));
+  }
+
+  return brands.some((brand) => HEIF_BRANDS.has(brand));
+};
+
+const normalizeImageMimeType = ({ filename, mimeType, buffer }: UploadedFile) => {
+  const normalizedMimeType = (mimeType || "").toLowerCase() || OCTET_STREAM_MIME_TYPE;
+  const extension = getFileExtension(filename);
+
+  if (normalizedMimeType !== OCTET_STREAM_MIME_TYPE) return normalizedMimeType;
+  if (!HEIC_IMAGE_EXTENSIONS.has(extension) || !hasHeifSignature(buffer)) {
+    return normalizedMimeType;
+  }
+
+  return extension === ".heif" ? "image/heif" : "image/heic";
+};
+
 export const isSupportedImageUpload = ({ filename, mimeType }: UploadedFile) => {
   const normalizedMimeType = (mimeType || "").toLowerCase();
-  const extensionStart = filename.lastIndexOf(".");
-  const extension = extensionStart >= 0 ? filename.slice(extensionStart).toLowerCase() : "";
+  const extension = getFileExtension(filename);
 
   if (!ALLOWED_IMAGE_EXTENSIONS.has(extension)) return false;
-  if (ALLOWED_IMAGE_MIME_TYPES.has(normalizedMimeType)) return true;
-
-  return HEIC_IMAGE_EXTENSIONS.has(extension) && normalizedMimeType === "application/octet-stream";
+  return ALLOWED_IMAGE_MIME_TYPES.has(normalizedMimeType);
 };
 
 export const parseMultipartFormData = async (request: Request): Promise<MultipartFormData> => {
@@ -69,11 +114,14 @@ export const parseMultipartFormData = async (request: Request): Promise<Multipar
     }
   });
 
+  const fileBuffer = Buffer.from(await fileValue.arrayBuffer());
   const uploadedFile: UploadedFile = {
     filename: sanitizeFilenameSegment(fileValue.name, "receipt"),
-    mimeType: fileValue.type || "application/octet-stream",
-    buffer: Buffer.from(await fileValue.arrayBuffer()),
+    mimeType: fileValue.type || OCTET_STREAM_MIME_TYPE,
+    buffer: fileBuffer,
   };
+
+  uploadedFile.mimeType = normalizeImageMimeType(uploadedFile);
 
   if (!isSupportedImageUpload(uploadedFile)) {
     throw createHttpError("이미지 파일만 업로드할 수 있습니다.", 400, "UNSUPPORTED_FILE_TYPE");
