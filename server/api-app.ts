@@ -13,7 +13,6 @@ import {
   errorResponse,
   jsonResponse,
   jsonResponseWithCookies,
-  methodNotAllowed,
   redirectResponse,
 } from "./shared/http.ts";
 
@@ -76,14 +75,5 @@ apiApp.post(
     return jsonResponse(200, body);
   },
 );
-
-const methodNotAllowedHandler = () => methodNotAllowed();
-
-apiApp.all("/google-auth-start", methodNotAllowedHandler);
-apiApp.all("/google-auth-callback", methodNotAllowedHandler);
-apiApp.all("/google-auth-logout", methodNotAllowedHandler);
-apiApp.all("/drive-branches", methodNotAllowedHandler);
-apiApp.all("/extract-payment-date", methodNotAllowedHandler);
-apiApp.all("/upload-to-drive", methodNotAllowedHandler);
 
 export default apiApp;
