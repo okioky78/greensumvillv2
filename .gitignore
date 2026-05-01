@@ -1,6 +1,7 @@
 node_modules
 dist
 deno.lock
+.DS_Store
 
 .env
 .env.local

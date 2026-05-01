@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence } from "motion/react";
 import { useMutation } from "@tanstack/react-query";
 import { FeedbackMessages } from "./ui/FeedbackMessages";
-import { GoogleConnectionCard } from "./ui/GoogleConnectionCard";
-import { PageFooter } from "./ui/PageFooter";
+import { LoginRequiredUploadGate } from "./ui/LoginRequiredUploadGate";
+import { ReceiptDriveLayout } from "./ui/ReceiptDriveLayout";
 import { SaveDetailsCard } from "./ui/SaveDetailsCard";
 import { UploadDropzone } from "./ui/UploadDropzone";
 import {
@@ -163,6 +163,10 @@ export const ReceiptDriveUploadPage = () => {
       selectedBranch &&
       googleConnection.isAuthenticated,
   );
+  const driveRootFolderUrl = getDriveRootFolderUrl(
+    import.meta.env.VITE_GOOGLE_DRIVE_ROOT_FOLDER_ID,
+  );
+  const hasSelectedFile = Boolean(imageSelection.file);
 
   useEffect(function clearSessionWhenBranchesRequireAuth() {
     if (!driveBranches.isAuthRequired) return;
@@ -178,64 +182,82 @@ export const ReceiptDriveUploadPage = () => {
     });
   }, [driveBranches.branches, googleConnection.isAuthenticated]);
 
+  useEffect(function resetSelectionWhenLoggedOut() {
+    if (googleConnection.isAuthenticated || !imageSelection.file) return;
+
+    handleReset();
+  }, [googleConnection.isAuthenticated, imageSelection.file]);
+
   return (
-    <div className="min-h-screen bg-neutral-50 p-4 text-neutral-900 md:p-8">
-      <div className="mx-auto max-w-5xl">
-        <header className="mb-12 text-center">
-          <h1 className="mb-4 text-4xl font-bold tracking-tight">
-            영수증 이미지 저장
-          </h1>
-          <p className="text-neutral-500">
-            영수증 이미지를 선택하고 결제일과 학생 이름으로 Google Drive에 저장하세요.
-          </p>
-        </header>
-
-        <main className="grid grid-cols-1 gap-8 md:grid-cols-[1.15fr_0.85fr]">
-          <UploadDropzone
-            file={imageSelection.file}
-            preview={imageSelection.preview}
-            onFileSelect={selectFile}
-            onFileReject={rejectFile}
-            onReset={handleReset}
-          />
-
-          <section className="space-y-6">
-            <GoogleConnectionCard
-              isAuthenticated={googleConnection.isAuthenticated}
-              isAuthLoading={googleConnection.isAuthLoading}
-              onLogin={googleConnection.handleLogin}
-              onLogout={handleLogout}
+    <ReceiptDriveLayout
+      driveUrl={driveRootFolderUrl}
+      isAuthenticated={googleConnection.isAuthenticated}
+      isLoggingOut={googleConnection.isLoggingOut}
+      onLogin={googleConnection.handleLogin}
+      onLogout={handleLogout}
+    >
+      <main
+        className={
+          googleConnection.isAuthenticated && hasSelectedFile
+            ? "grid grid-cols-1 gap-8 md:grid-cols-[1.15fr_0.85fr]"
+            : "mx-auto flex min-h-[420px] max-w-lg flex-col justify-center sm:min-h-[500px] md:min-h-[520px]"
+        }
+      >
+        {!googleConnection.isAuthenticated ? (
+          <LoginRequiredUploadGate onLogin={googleConnection.handleLogin} />
+        ) : (
+          <>
+            <UploadDropzone
+              file={imageSelection.file}
+              preview={imageSelection.preview}
+              onFileSelect={selectFile}
+              onFileReject={rejectFile}
+              onReset={handleReset}
             />
 
-            <AnimatePresence mode="wait">
-              <SaveDetailsCard
-                file={imageSelection.file}
-                branches={driveBranches.branches}
-                selectedBranch={selectedBranch}
-                paymentDate={paymentDate}
-                studentName={studentName}
-                isAuthenticated={googleConnection.isAuthenticated}
-                isBranchesLoading={driveBranches.isLoading}
-                isExtracting={isExtracting}
-                isUploading={isUploading}
-                canUpload={canUpload}
-                uploadRequirementMessage={uploadRequirementMessage}
-                onBranchChange={setSelectedBranch}
-                onPaymentDateChange={setPaymentDate}
-                onStudentNameChange={setStudentName}
-                onExtractPaymentDate={handleExtractPaymentDate}
-                onUploadToDrive={handleUploadToDrive}
-              />
-            </AnimatePresence>
+            {!hasSelectedFile && <FeedbackMessages error={visibleError} success={success} />}
 
-            <FeedbackMessages error={visibleError} success={success} />
-          </section>
-        </main>
+            {hasSelectedFile && (
+              <section className="space-y-6">
+                <AnimatePresence mode="wait">
+                  <SaveDetailsCard
+                    file={imageSelection.file}
+                    branches={driveBranches.branches}
+                    selectedBranch={selectedBranch}
+                    paymentDate={paymentDate}
+                    studentName={studentName}
+                    isAuthenticated={googleConnection.isAuthenticated}
+                    isBranchesLoading={driveBranches.isLoading}
+                    isExtracting={isExtracting}
+                    isUploading={isUploading}
+                    canUpload={canUpload}
+                    uploadRequirementMessage={uploadRequirementMessage}
+                    onBranchChange={setSelectedBranch}
+                    onPaymentDateChange={setPaymentDate}
+                    onStudentNameChange={setStudentName}
+                    onExtractPaymentDate={handleExtractPaymentDate}
+                    onUploadToDrive={handleUploadToDrive}
+                  />
+                </AnimatePresence>
 
-        <PageFooter />
-      </div>
-    </div>
+                <FeedbackMessages error={visibleError} success={success} />
+              </section>
+            )}
+          </>
+        )}
+      </main>
+
+    </ReceiptDriveLayout>
   );
+};
+
+const getDriveRootFolderUrl = (folderId?: string) => {
+  const normalizedFolderId = folderId?.trim();
+  if (!normalizedFolderId || normalizedFolderId.includes("your-google-drive-root-folder-id")) {
+    return null;
+  }
+
+  return `https://drive.google.com/drive/folders/${encodeURIComponent(normalizedFolderId)}`;
 };
 
 type UploadRequirementInput = {

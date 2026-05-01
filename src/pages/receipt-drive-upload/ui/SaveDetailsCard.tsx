@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { Image as ImageIcon, Loader2, Save, Sparkles } from "lucide-react";
+import { ChevronDown, Image as ImageIcon, Loader2, Save, Sparkles } from "lucide-react";
 
 type SaveDetailsCardProps = {
   file: File | null;
@@ -64,23 +64,26 @@ export const SaveDetailsCard = ({
           <label className="mb-2 block text-sm font-semibold text-neutral-700" htmlFor="branch">
             지점
           </label>
-          <select
-            id="branch"
-            value={selectedBranch}
-            onChange={(event) => onBranchChange(event.target.value)}
-            disabled={!isAuthenticated || isBranchesLoading || branches.length === 0}
-            className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm font-medium outline-none transition focus:border-emerald-400 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:bg-neutral-50 disabled:text-neutral-400"
-          >
-            {branches.length === 0 ? (
-              <option value="">{isBranchesLoading ? "지점 불러오는 중..." : "로그인 후 지점이 표시됩니다"}</option>
-            ) : (
-              branches.map((branch) => (
-                <option key={branch} value={branch}>
-                  {branch}
-                </option>
-              ))
-            )}
-          </select>
+          <div className="relative">
+            <select
+              id="branch"
+              value={selectedBranch}
+              onChange={(event) => onBranchChange(event.target.value)}
+              disabled={!isAuthenticated || isBranchesLoading || branches.length === 0}
+              className="w-full appearance-none rounded-xl border border-neutral-200 bg-white px-4 py-3 pr-12 text-sm font-medium outline-none transition focus:border-emerald-400 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:bg-neutral-50 disabled:text-neutral-400"
+            >
+              {branches.length === 0 ? (
+                <option value="">{isBranchesLoading ? "지점 불러오는 중..." : "로그인 후 지점이 표시됩니다"}</option>
+              ) : (
+                branches.map((branch) => (
+                  <option key={branch} value={branch}>
+                    {branch}
+                  </option>
+                ))
+              )}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-700" />
+          </div>
         </div>
 
         <div>
@@ -99,7 +102,7 @@ export const SaveDetailsCard = ({
               type="button"
               onClick={onExtractPaymentDate}
               disabled={!isAuthenticated || isExtracting}
-              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-emerald-200 px-4 py-3 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-white px-4 py-3 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-neutral-200 disabled:text-neutral-300"
             >
               {isExtracting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               {paymentDate ? "다시 추출" : "추출"}
@@ -130,7 +133,7 @@ export const SaveDetailsCard = ({
           type="button"
           onClick={onUploadToDrive}
           disabled={!canUpload || isUploading}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-4 font-semibold text-white transition-all hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-neutral-300"
+          className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-emerald-600 py-4 text-sm font-semibold text-white transition hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-neutral-300"
         >
           {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
           Google Drive에 저장

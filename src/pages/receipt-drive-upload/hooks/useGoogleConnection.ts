@@ -16,7 +16,7 @@ export const useGoogleConnection = ({
   const queryClient = useQueryClient();
   const [isAuthenticated, setIsAuthenticated] = useState(hasLoginState);
 
-  const { mutate: logout } = useMutation({
+  const { mutate: logout, isPending: isLoggingOut } = useMutation({
     mutationFn: logoutGoogle,
   });
 
@@ -69,6 +69,6 @@ export const useGoogleConnection = ({
     handleLogin,
     handleLogout,
     isAuthenticated,
-    isAuthLoading: false,
+    isLoggingOut,
   };
 };
