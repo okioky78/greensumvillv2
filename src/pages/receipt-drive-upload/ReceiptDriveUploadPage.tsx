@@ -246,7 +246,6 @@ export const ReceiptDriveUploadPage = () => {
           </>
         )}
       </main>
-
     </ReceiptDriveLayout>
   );
 };

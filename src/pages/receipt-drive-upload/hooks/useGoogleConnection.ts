@@ -60,7 +60,11 @@ export const useGoogleConnection = ({
     }
 
     if (authError || authSuccess) {
-      window.history.replaceState(null, "", window.location.pathname);
+      params.delete("authError");
+      params.delete("auth");
+      const query = params.toString();
+      const cleanUrl = `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`;
+      window.history.replaceState(null, "", cleanUrl);
     }
   }, [clearAuthenticatedState, onError]);
 

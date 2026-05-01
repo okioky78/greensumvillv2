@@ -21,5 +21,22 @@ export const getApiErrorMessage = (error: unknown, fallbackMessage: string) => {
   return fallbackMessage;
 };
 
-export const isAuthRequiredError = (error: unknown) =>
-  axios.isAxiosError(error) && error.response?.status === 401;
+const authRecoveryErrorCodes = new Set([
+  "AUTH_REQUIRED",
+  "DRIVE_AUTH_FAILED",
+  "INVALID_SESSION_CREATED_AT",
+  "MISSING_GOOGLE_IDENTITY",
+  "SESSION_ABSOLUTE_EXPIRED",
+  "SESSION_IDLE_EXPIRED",
+  "SESSION_REFRESH_FAILED",
+  "SHEET_AUTH_FAILED",
+]);
+
+export const isAuthRequiredError = (error: unknown) => {
+  if (!axios.isAxiosError<ApiErrorBody>(error)) return false;
+
+  const status = error.response?.status;
+  const code = error.response?.data?.code;
+
+  return status === 401 || Boolean(code && authRecoveryErrorCodes.has(code));
+};
